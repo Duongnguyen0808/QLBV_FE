@@ -1,125 +1,136 @@
-// Đặt file này vào: lib/app/domain/repositories/auth/
+// lib/app/domain/repositories/auth/auth_repository.dart
+
+import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:hospital_booking_app/app/core/config/app_config.dart';
+import 'package:equatable/equatable.dart';
 
-// --- Thay thế DTOs: Các lớp dữ liệu đơn giản ---
-
-class SignInRequest {
+// --- REQUEST MODELS (Lớp bị thiếu: SignInRequest, SignUpRequest) ---
+class SignInRequest extends Equatable {
   final String email;
   final String password;
-  SignInRequest({required this.email, required required this.password});
-  Map<String, dynamic> toJson() => {'email': email, 'password': password};
+
+  const SignInRequest({required this.email, required this.password});
+
+  Map<String, dynamic> toJson() => {
+        'email': email,
+        'password': password,
+      };
+
+  @override
+  List<Object> get props => [email, password];
 }
 
-class SignUpRequest {
+class SignUpRequest extends Equatable {
   final String fullName;
   final String phoneNumber;
   final String email;
   final String password;
-  SignUpRequest({
+
+  const SignUpRequest({
     required this.fullName,
     required this.phoneNumber,
     required this.email,
     required this.password,
   });
+
   Map<String, dynamic> toJson() => {
         'fullName': fullName,
         'phoneNumber': phoneNumber,
         'email': email,
         'password': password,
       };
+
+  @override
+  List<Object> get props => [fullName, phoneNumber, email, password];
 }
 
+// --- RESPONSE MODEL (Phản hồi API) ---
 class JwtResponse {
   final String token;
+
   JwtResponse({required this.token});
+
   factory JwtResponse.fromJson(Map<String, dynamic> json) {
-    return JwtResponse(token: json['token'] as String);
+    return JwtResponse(
+      token: json['token'] as String,
+    );
   }
 }
 
-// --- Repository Interface and Implementation ---
-
+// --- ABSTRACT REPOSITORY (Lớp bị thiếu: AuthRepository) ---
 abstract class AuthRepository {
-  Future<JwtResponse> signIn(SignInRequest request);
+  Future<void> signIn(SignInRequest request);
   Future<String> signUp(SignUpRequest request);
-  Future<void> saveToken(String token);
-  Future<void> deleteToken();
   Future<bool> isLoggedIn();
+  Future<void> deleteToken();
 }
 
+// --- REPOSITORY IMPLEMENTATION (Lớp bị thiếu: AuthRepositoryImpl) ---
 class AuthRepositoryImpl implements AuthRepository {
-  final Dio _dio;
-  final FlutterSecureStorage _storage;
-  static const _tokenKey = 'jwt_token';
+  final Dio dio;
+  final FlutterSecureStorage storage;
 
-  AuthRepositoryImpl({
-    required Dio dio,
-    required FlutterSecureStorage storage,
-  })  : _dio = dio,
-        _storage = storage;
+  AuthRepositoryImpl({required this.dio, required this.storage});
 
-  // Gọi API Đăng nhập: POST /api/auth/signin
   @override
-  Future<JwtResponse> signIn(SignInRequest request) async {
+  Future<void> signIn(SignInRequest request) async {
     try {
-      final response = await _dio.post(
-        '${AppConfig.baseUrl}/api/auth/signin',
+      final response = await dio.post(
+        '/api/auth/signin',
         data: request.toJson(),
       );
+
       final jwtResponse = JwtResponse.fromJson(response.data);
-      await saveToken(jwtResponse.token);
-      return jwtResponse;
+      await storage.write(key: 'jwt_token', value: jwtResponse.token);
     } on DioException catch (e) {
-      if (e.response != null && e.response!.statusCode == 400) {
-        final errorBody = e.response!.data;
-        // Xử lý lỗi 400 (Bad Request) từ Backend
-        final message =
-            errorBody is String ? errorBody : (errorBody['message'] ?? 'Email hoặc mật khẩu không hợp lệ.');
-        throw Exception(message);
+      if (e.response != null && e.response!.data != null) {
+        // Xử lý lỗi từ Backend (ví dụ: Sai mật khẩu)
+        String errorMessage = e.response!.data is String
+            ? e.response!.data
+            : e.response!.data['message'] ?? 'Lỗi đăng nhập không xác định.';
+        throw Exception(errorMessage);
       }
-      throw Exception('Lỗi kết nối hoặc server: ${e.message}');
+      throw Exception(
+          'Kết nối thất bại. Vui lòng kiểm tra lại mạng hoặc server.');
     }
   }
 
-  // Gọi API Đăng ký: POST /api/auth/signup
   @override
   Future<String> signUp(SignUpRequest request) async {
     try {
-      final response = await _dio.post(
-        '${AppConfig.baseUrl}/api/auth/signup',
+      final response = await dio.post(
+        '/api/auth/signup',
         data: request.toJson(),
       );
-      // Backend trả về message là String
-      return response.data;
+
+      // Backend trả về String message (ví dụ: "Đăng ký thành công...")
+      return response.data is String
+          ? response.data
+          : 'Đăng ký thành công! Vui lòng kiểm tra email.';
     } on DioException catch (e) {
-      if (e.response != null && e.response!.statusCode == 400) {
-        final errorBody = e.response!.data;
-        final message =
-            errorBody is String ? errorBody : (errorBody['message'] ?? 'Dữ liệu không hợp lệ.');
-        throw Exception(message);
+      if (e.response != null && e.response!.data != null) {
+        // Xử lý lỗi từ Backend (ví dụ: Email đã tồn tại)
+        String errorMessage = e.response!.data is String
+            ? e.response!.data
+            : e.response!.data['message'] ?? 'Lỗi đăng ký không xác định.';
+        throw Exception(errorMessage);
       }
-      throw Exception('Lỗi kết nối hoặc server.');
+      throw Exception(
+          'Kết nối thất bại. Vui lòng kiểm tra lại mạng hoặc server.');
     }
-  }
-
-  // --- Token Management ---
-
-  @override
-  Future<void> saveToken(String token) async {
-    await _storage.write(key: _tokenKey, value: token);
-  }
-
-  @override
-  Future<void> deleteToken() async {
-    await _storage.delete(key: _tokenKey);
   }
 
   @override
   Future<bool> isLoggedIn() async {
-    final token = await _storage.read(key: _tokenKey);
+    final token = await storage.read(key: 'jwt_token');
+    // Logic đơn giản: chỉ cần có token là coi như đã đăng nhập
     return token != null;
+  }
+
+  @override
+  Future<void> deleteToken() async {
+    await storage.delete(key: 'jwt_token');
   }
 }

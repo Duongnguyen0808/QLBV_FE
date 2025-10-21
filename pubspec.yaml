@@ -1,0 +1,50 @@
+name: hospital_booking_app
+description: Ứng dụng đăng ký khám bệnh Bệnh viện Nhi Đồng 2
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+  flutter: ">=3.10.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State Management & Dependency Injection
+  flutter_bloc: ^8.1.4
+  equatable: ^2.0.5
+  get_it: ^7.7.0
+  flutter_secure_storage: ^9.0.0
+
+  # API & Utilities
+  dio: ^5.4.3+1
+  pretty_dio_logger: ^1.3.1
+  shared_preferences: ^2.2.3
+  intl: ^0.19.0
+  google_fonts: ^6.3.1
+  image_picker: ^1.1.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^2.0.0
+
+flutter:
+  uses-material-design: true
+
+  # assets:
+  #   - assets/images/
+  #   - assets/icons/
+  #   - assets/animations/
+
+  # fonts:
+  #   - family: Roboto
+  #     fonts:
+  #       - asset: assets/fonts/Roboto-Regular.ttf
+  #         weight: 400
+  #       # Nếu có thêm biến thể, khai báo tiếp:
+  #       # - asset: assets/fonts/Roboto-Medium.ttf
+  #       #   weight: 500
+  #       # - asset: assets/fonts/Roboto-Bold.ttf
+  #       #   weight: 700

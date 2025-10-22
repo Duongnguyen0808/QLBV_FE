@@ -1,7 +1,10 @@
+// lib/app/presentation/features/booking/pages/appointment_detail_page.dart
+
 import 'package:flutter/material.dart';
 import 'package:hospital_booking_app/app/core/constants/app_colors.dart';
 import 'package:hospital_booking_app/app/core/di/injection_container.dart';
 import 'package:hospital_booking_app/app/data/models/appointment_request_model.dart';
+import 'package:hospital_booking_app/app/data/models/appointment_response_model.dart';
 import 'package:hospital_booking_app/app/data/models/doctor_search_result_model.dart';
 import 'package:hospital_booking_app/app/data/models/payment_models.dart';
 import 'package:hospital_booking_app/app/domain/repositories/appointment/appointment_repository.dart';
@@ -27,7 +30,6 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
   @override
   void initState() {
     super.initState();
-    // Bắt đầu với ngày đầu tiên có thể đặt lịch
     _fetchTimeSlots(_selectedDate);
   }
 
@@ -42,16 +44,13 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
 
     final List<String> availableSlots = [];
 
-    // FIX ĐỒNG BỘ: Lấy tên ngày theo chuẩn ENUM của Java (ví dụ: TUESDAY)
     final String requestedDayEnglish =
         DateFormat('EEEE', 'en_US').format(date).toUpperCase();
-    // CHUYỂN TÊN TIẾNG ANH ĐÓ SANG TIẾNG VIỆT ĐỂ SO SÁNH VỚI DATA TỪ API
     final String dayInVietnameseAPI =
         _mapEnglishDayToVietnamese(requestedDayEnglish);
 
-    // 1. Tìm các ca làm việc (schedule) cho ngày đã chọn
     final schedulesForDay = widget.doctor.schedules
-        .where((s) => s.dayOfWeek == dayInVietnameseAPI) // SO SÁNH CHÍNH XÁC
+        .where((s) => s.dayOfWeek == dayInVietnameseAPI)
         .toList();
 
     if (schedulesForDay.isEmpty) {
@@ -61,7 +60,6 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
       return;
     }
 
-    // 2. Tính toán các slot 30 phút trong mỗi ca
     for (var schedule in schedulesForDay) {
       try {
         final parts = schedule.timeSlot.split(' - ');
@@ -73,14 +71,24 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
         var currentSlot = DateTime.parse('2025-01-01 $startTimeStr:00');
         final endTime = DateTime.parse('2025-01-01 $endTimeStr:00');
 
-        // Lặp và tạo các slot 30 phút
         while (currentSlot.isBefore(endTime)) {
-          final slotString = DateFormat('HH:mm').format(currentSlot);
-          availableSlots.add(slotString);
+          final slotStartTime = DateTime(date.year, date.month, date.day,
+              currentSlot.hour, currentSlot.minute);
+          final slotEndTime = slotStartTime.add(const Duration(minutes: 30));
+
+          if (slotStartTime
+                  .isAfter(DateTime.now().add(const Duration(hours: 1))) &&
+              slotEndTime.isBefore(DateTime(date.year, date.month, date.day,
+                      endTime.hour, endTime.minute)
+                  .add(const Duration(minutes: 1)))) {
+            final slotString = DateFormat('HH:mm').format(currentSlot);
+            availableSlots.add(slotString);
+          }
+
           currentSlot = currentSlot.add(const Duration(minutes: 30));
         }
       } catch (e) {
-        // Bỏ qua nếu định dạng giờ sai
+        // Log lỗi nếu định dạng giờ sai (không ảnh hưởng luồng)
       }
     }
 
@@ -100,14 +108,10 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
     }
 
     final dateString = DateFormat('yyyy-MM-dd').format(_selectedDate);
-    final appointmentDateTime =
-        DateTime.parse('$dateString $_selectedTimeSlot:00')
-            .toUtc()
-            .toIso8601String();
+    final appointmentDateTime = '${dateString}T$_selectedTimeSlot:00+07:00';
 
     final request = AppointmentRequestModel(
-      // Tạm thời hardcode specialtyId
-      specialtyId: 1,
+      specialtyId: widget.doctor.specialtyId,
       doctorId: widget.doctor.doctorId,
       appointmentDateTime: appointmentDateTime,
       notes: 'Đặt lịch từ Mobile App',
@@ -120,8 +124,9 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
         );
       }
 
-      final responseData = await _appointmentRepo.createAppointment(request);
-      final int newAppointmentId = (responseData['id'] as num).toInt();
+      final AppointmentResponseModel newAppointment =
+          await _appointmentRepo.createAppointment(request);
+      final int newAppointmentId = newAppointment.id;
 
       final paymentRequest =
           PaymentRequestModel(appointmentId: newAppointmentId);
@@ -135,6 +140,7 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
             amount: paymentResponse.amount,
             qrUrl: paymentResponse.paymentUrl,
             transactionId: paymentResponse.transactionId,
+            appointmentId: newAppointmentId, // DÒNG BỔ SUNG QUAN TRỌNG
           ),
         ));
       }
@@ -148,6 +154,8 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
       }
     }
   }
+
+  // ... (các hàm _buildDoctorHeader, _buildDateSelector, _buildTimeSlotSelector, _mapEnglishDayToVietnamese giữ nguyên)
 
   @override
   Widget build(BuildContext context) {
@@ -207,7 +215,6 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
     );
   }
 
-  // --- Doctor Header Widget (Đã fix lỗi Overflow) ---
   Widget _buildDoctorHeader(DoctorSearchResultModel doc) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -254,7 +261,7 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
                     ),
                     Flexible(
                       child: Text(
-                        '150.000 VND',
+                        '10.000 VND',
                         style: TextStyle(
                             color: AppColors.red, fontWeight: FontWeight.bold),
                       ),
@@ -265,8 +272,6 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
             ),
           ),
           const SizedBox(width: 10),
-
-          // Giả lập icons liên lạc (Kích thước cố định)
           Column(
             children: [
               Icon(Icons.chat_bubble_outline,
@@ -280,7 +285,6 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
     );
   }
 
-  // --- Date Picker Component (Customized Calendar) ---
   Widget _buildDateSelector() {
     final today = DateTime.now();
     final dates = List.generate(7, (i) => today.add(Duration(days: i)));
@@ -300,11 +304,19 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
             itemCount: dates.length,
             itemBuilder: (context, index) {
               final date = dates[index];
+              if (index == 0) return const SizedBox.shrink();
+
               final isSelected = DateFormat('dd').format(date) ==
                   DateFormat('dd').format(_selectedDate);
 
-              String dayName = DateFormat('EEE').format(date);
-              String dayNameVietnamese = _mapDayOfWeek(dayName);
+              String dayNameVietnamese =
+                  DateFormat('EEE', 'vi_VN').format(date);
+              if (dayNameVietnamese.contains('Th')) {
+                dayNameVietnamese = dayNameVietnamese.replaceFirst('Th', 'Th ');
+              }
+              if (dayNameVietnamese.contains('CN')) {
+                dayNameVietnamese = 'CN';
+              }
 
               return GestureDetector(
                 onTap: () => _fetchTimeSlots(date),
@@ -350,7 +362,6 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
     );
   }
 
-  // --- Time Slot Selector ---
   Widget _buildTimeSlotSelector() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -371,7 +382,7 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
         else if (_timeSlots.isEmpty)
           Center(
               child: Text(
-            'Không có ca làm việc hợp lệ trong ngày này.',
+            'Không có ca làm việc hợp lệ hoặc còn trống trong ngày này.',
             style: TextStyle(color: AppColors.red),
           ))
         else
@@ -401,29 +412,6 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
     );
   }
 
-  // Hàm mapping ngày trong tuần sang tiếng Việt (Giữ nguyên cho UI)
-  String _mapDayOfWeek(String day) {
-    switch (day) {
-      case 'MONDAY':
-        return 'Thứ Hai';
-      case 'TUESDAY':
-        return 'Thứ Ba';
-      case 'WEDNESDAY':
-        return 'Thứ Tư';
-      case 'THURSDAY':
-        return 'Thứ Năm';
-      case 'FRIDAY':
-        return 'Thứ Sáu';
-      case 'SATURDAY':
-        return 'Thứ Bảy';
-      case 'SUNDAY':
-        return 'Chủ Nhật';
-      default:
-        return day;
-    }
-  }
-
-  // HÀM MAPPING NGÀY TỪ TIẾNG ANH SANG TIẾNG VIỆT (ĐÃ SỬA LỖI ĐỒNG BỘ)
   String _mapEnglishDayToVietnamese(String englishDay) {
     switch (englishDay) {
       case 'MONDAY':

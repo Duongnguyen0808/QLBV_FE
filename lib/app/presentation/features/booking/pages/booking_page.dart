@@ -9,21 +9,54 @@ import 'package:hospital_booking_app/app/data/models/user_model.dart';
 import 'package:hospital_booking_app/app/data/models/doctor_search_result_model.dart';
 import 'package:hospital_booking_app/app/presentation/features/booking/pages/bloc/booking_cubit.dart';
 import 'package:hospital_booking_app/app/presentation/features/booking/pages/doctor_list_page.dart';
+import 'package:hospital_booking_app/app/presentation/features/booking/pages/specialty_list_page.dart';
+import 'package:hospital_booking_app/app/domain/repositories/data/data_repository.dart';
+import 'package:hospital_booking_app/app/presentation/features/booking/pages/appointment_detail_page.dart'; // THÊM IMPORT NÀY
 
 class BookingPage extends StatelessWidget {
   const BookingPage({super.key});
 
+  // Helper function: Logic lọc bác sĩ theo chuyên khoa và điều hướng
+  void _navigateAndFilterDoctors(
+      BuildContext context, int specialtyId, String specialtyName) async {
+    final dataRepo = sl<DataRepository>(); // Lấy DataRepository instance
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Đang tải bác sĩ cho khoa $specialtyName...')),
+      );
+    }
+
+    try {
+      // Gọi API tìm kiếm bác sĩ với filter specialtyId
+      final filteredDoctors =
+          await dataRepo.searchDoctors(specialtyId: specialtyId);
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        // Điều hướng tới trang danh sách bác sĩ với kết quả đã lọc
+        Navigator.of(context).push(MaterialPageRoute(
+          builder: (c) => DoctorListPage(doctors: filteredDoctors),
+        ));
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi tải bác sĩ: $e')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocProvider<BookingCubit>(
-      // Sửa lỗi Type Argument
       create: (context) => sl<BookingCubit>()..fetchInitialData(),
       child: Scaffold(
         backgroundColor: AppColors.lightBackground,
         body: BlocBuilder<BookingCubit, BookingState>(
-          // Sửa lỗi Type Argument
           builder: (context, state) {
-            // Sửa lỗi State: BookingLoading, BookingLoadFailure, BookingLoadSuccess
             if (state is BookingLoading) {
               return const Center(
                   child:
@@ -73,20 +106,20 @@ class BookingPage extends StatelessWidget {
           _buildSectionTitle(
               title: 'Chuyên khoa',
               onSeeAll: () {
-                // TODO: Navigate to All Specialties Page
+                Navigator.of(context).push(MaterialPageRoute(
+                  builder: (c) => SpecialtyListPage(specialties: specialties),
+                ));
               }),
           const SizedBox(height: 10),
-          _buildCategories(specialties),
+          _buildCategories(context, specialties),
           const SizedBox(height: 30),
           _buildSectionTitle(
             title: 'Bác sĩ nổi bật',
             onSeeAll: () async {
-              // Sửa lỗi context.read
               final cubit = context.read<BookingCubit>();
               try {
                 final allDoctors = await cubit.fetchAllDoctors();
                 if (context.mounted) {
-                  // Sửa lỗi DoctorListPage
                   Navigator.of(context).push(MaterialPageRoute(
                     builder: (c) => DoctorListPage(doctors: allDoctors),
                   ));
@@ -172,7 +205,6 @@ class BookingPage extends StatelessWidget {
           ),
         ),
         onTap: () async {
-          // Sửa lỗi context.read thành sl<>
           final cubit = sl<BookingCubit>();
           try {
             final allDoctors = await cubit.fetchAllDoctors();
@@ -218,7 +250,8 @@ class BookingPage extends StatelessWidget {
     );
   }
 
-  Widget _buildCategories(List<SpecialtyModel> specialties) {
+  Widget _buildCategories(
+      BuildContext context, List<SpecialtyModel> specialties) {
     final displaySpecialties = specialties.take(4).toList();
 
     return SizedBox(
@@ -230,37 +263,45 @@ class BookingPage extends StatelessWidget {
           final specialty = displaySpecialties[index];
           return Padding(
             padding: const EdgeInsets.only(right: 15.0),
-            child: _buildCategoryCard(
-                specialty.name, Icons.local_hospital_outlined),
+            // SỬA: Truyền toàn bộ SpecialtyModel và context
+            child: _buildCategoryCard(context, specialty),
           );
         },
       ),
     );
   }
 
-  Widget _buildCategoryCard(String title, IconData icon) {
-    return Container(
-      width: 100,
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: AppColors.secondaryColor.withOpacity(0.2),
-        borderRadius: BorderRadius.circular(15),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, color: AppColors.primaryColor, size: 35),
-          const SizedBox(height: 5),
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textColor,
+  Widget _buildCategoryCard(BuildContext context, SpecialtyModel specialty) {
+    return GestureDetector(
+      // Bọc bằng GestureDetector
+      onTap: () {
+        // Gọi hàm lọc bác sĩ khi nhấn vào thẻ chuyên khoa
+        _navigateAndFilterDoctors(context, specialty.id, specialty.name);
+      },
+      child: Container(
+        width: 100,
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: AppColors.secondaryColor.withOpacity(0.2),
+          borderRadius: BorderRadius.circular(15),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.local_hospital_outlined,
+                color: AppColors.primaryColor, size: 35),
+            const SizedBox(height: 5),
+            Text(
+              specialty.name,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textColor,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -338,9 +379,10 @@ class BookingPage extends StatelessWidget {
             ),
             ElevatedButton(
               onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Đặt lịch với ${doc.fullName}')),
-                );
+                // SỬA: Điều hướng tới AppointmentDetailPage khi nhấn nút Đặt lịch
+                Navigator.of(context).push(MaterialPageRoute(
+                  builder: (c) => AppointmentDetailPage(doctor: doc),
+                ));
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primaryColor,

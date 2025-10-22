@@ -11,6 +11,8 @@ class PaymentQRPage extends StatefulWidget {
   final int amount;
   final String qrUrl;
   final int transactionId;
+  // THÊM: Cần có Appointment ID để gọi API HỦY LỊCH HẸN
+  final int appointmentId;
 
   const PaymentQRPage({
     super.key,
@@ -18,6 +20,7 @@ class PaymentQRPage extends StatefulWidget {
     required this.amount,
     required this.qrUrl,
     required this.transactionId,
+    required this.appointmentId, // THÊM DÒNG NÀY
   });
 
   @override
@@ -45,10 +48,8 @@ class _PaymentQRPageState extends State<PaymentQRPage> {
   }
 
   void _startPolling() {
-    // Chạy lần đầu tiên
     _checkStatus();
 
-    // Polling mỗi 3 giây
     _pollingTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
       _checkStatus();
     });
@@ -66,21 +67,25 @@ class _PaymentQRPageState extends State<PaymentQRPage> {
           _statusMessage = 'Thanh toán THÀNH CÔNG! Đang chuyển hướng...';
           _statusColor = AppColors.green;
         });
-        // Chờ 2 giây rồi chuyển về trang chủ (hoặc trang lịch hẹn)
         Future.delayed(const Duration(seconds: 2), () {
+          // THAY THẾ: Điều hướng về màn hình chính sau khi thành công
           Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute(builder: (context) => const MainTabController()),
             (Route<dynamic> route) => false,
           );
         });
-      } else if (status == 'FAILED') {
+      } else if (status == 'FAILED' || status == 'CANCELLED') {
         _pollingTimer?.cancel();
         setState(() {
-          _statusMessage = 'Thanh toán THẤT BẠI. Vui lòng thử lại.';
+          _statusMessage =
+              'Giao dịch đã hủy hoặc thất bại. Vui lòng đặt lại lịch hẹn.';
           _statusColor = AppColors.red;
         });
+        // Có thể cho phép người dùng quay lại sau khi giao dịch bị hủy
+        Future.delayed(const Duration(seconds: 3), () {
+          if (mounted) Navigator.of(context).pop();
+        });
       }
-      // Nếu là PENDING, giữ nguyên trạng thái
     } catch (e) {
       _pollingTimer?.cancel();
       setState(() {
@@ -90,10 +95,42 @@ class _PaymentQRPageState extends State<PaymentQRPage> {
     }
   }
 
+  // THÊM: Hàm gọi API Hủy Lịch hẹn
+  void _cancelAppointment() async {
+    _pollingTimer?.cancel();
+    try {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Đang hủy lịch hẹn...')),
+        );
+      }
+      // GỌI API HỦY LỊCH HẸN
+      await _appointmentRepo.cancelAppointment(widget.appointmentId);
+
+      // Sau khi hủy, backend sẽ tự động hủy giao dịch (hoặc chúng ta sẽ làm ở bước 2)
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Hủy giao dịch thành công.')),
+        );
+        Navigator.of(context).pop(); // Quay lại màn hình đặt lịch
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi hủy giao dịch: ${e.toString()}')),
+        );
+      }
+      // Dù lỗi vẫn pop để tránh kẹt
+      Navigator.of(context).pop();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final encodedQrUrl = Uri.encodeFull(widget.qrUrl);
+
     return PopScope(
-      canPop: false, // Ngăn chặn người dùng quay lại khi đang thanh toán
+      canPop: false,
       child: Scaffold(
         backgroundColor: AppColors.primaryColor,
         appBar: AppBar(
@@ -101,24 +138,10 @@ class _PaymentQRPageState extends State<PaymentQRPage> {
               style: TextStyle(color: AppColors.white)),
           backgroundColor: AppColors.primaryColor,
           elevation: 0,
-          automaticallyImplyLeading:
-              false, // Bỏ nút back khi ở màn hình thanh toán
+          automaticallyImplyLeading: false,
         ),
         body: Column(
           children: [
-            // Phần Header hiển thị số tiền
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 20.0),
-              child: Text(
-                _currencyFormat.format(widget.amount) + ' VND',
-                style: const TextStyle(
-                  color: AppColors.white,
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-
             Expanded(
               child: Container(
                 width: double.infinity,
@@ -134,7 +157,6 @@ class _PaymentQRPageState extends State<PaymentQRPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      // Tiêu đề thanh toán
                       Text(
                         'Thanh toán cho Lịch hẹn Bác sĩ ${widget.doctorName}',
                         textAlign: TextAlign.center,
@@ -146,7 +168,6 @@ class _PaymentQRPageState extends State<PaymentQRPage> {
                       ),
                       const SizedBox(height: 20),
 
-                      // QR Code (Sử dụng Image.network)
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
@@ -155,11 +176,11 @@ class _PaymentQRPageState extends State<PaymentQRPage> {
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Image.network(
-                          widget.qrUrl,
-                          height: 250,
+                          encodedQrUrl,
+                          height: 300,
                           errorBuilder: (context, error, stackTrace) =>
                               const SizedBox(
-                            height: 250,
+                            height: 300,
                             child: Center(child: Text('Lỗi tải QR Code')),
                           ),
                         ),
@@ -193,14 +214,11 @@ class _PaymentQRPageState extends State<PaymentQRPage> {
                       ),
                       const SizedBox(height: 30),
 
-                      // Nút Hủy giao dịch (Cho phép quay về màn hình trước khi thanh toán thành công)
+                      // Nút Hủy giao dịch (GỌI HÀM HỦY)
                       SizedBox(
                         width: double.infinity,
                         child: OutlinedButton(
-                          onPressed: () {
-                            _pollingTimer?.cancel();
-                            Navigator.of(context).pop();
-                          },
+                          onPressed: _cancelAppointment,
                           style: OutlinedButton.styleFrom(
                             foregroundColor: AppColors.red,
                             side: const BorderSide(color: AppColors.red),

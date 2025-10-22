@@ -38,7 +38,6 @@ class MyApp extends StatelessWidget {
       ],
       child: MaterialApp(
         title: 'Hospital Booking App',
-        // THÊM DÒNG NÀY ĐỂ CÀI ĐẶT LOCALE VIỆT NAM MẶC ĐỊNH
         locale: const Locale('vi', 'VN'),
         localizationsDelegates: const [
           DefaultMaterialLocalizations.delegate,

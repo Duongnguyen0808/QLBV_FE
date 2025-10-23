@@ -46,6 +46,10 @@ class MyApp extends StatelessWidget {
         BlocProvider<MedicalRecordCubit>(
           create: (context) => sl<MedicalRecordCubit>(),
         ),
+        BlocProvider<DoctorScheduleCubit>(
+          // <--- THÊM PROVIDER NÀY
+          create: (context) => sl<DoctorScheduleCubit>(),
+        ),
       ],
       child: MaterialApp(
         title: 'Hospital Booking App',

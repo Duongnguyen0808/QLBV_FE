@@ -6,14 +6,93 @@ import 'package:hospital_booking_app/app/core/constants/app_colors.dart';
 import 'package:hospital_booking_app/app/data/models/medical_record_model.dart';
 import 'package:hospital_booking_app/app/presentation/features/medical_record/bloc/medical_record_cubit.dart';
 import 'package:intl/intl.dart';
+import 'package:hospital_booking_app/app/core/di/injection_container.dart';
+import 'package:hospital_booking_app/app/presentation/features/auth/bloc/auth_cubit.dart';
+import 'package:hospital_booking_app/app/presentation/features/auth/bloc/auth_state.dart';
 
-class MedicalHistoryPage extends StatelessWidget {
+class MedicalHistoryPage extends StatefulWidget {
   const MedicalHistoryPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    // Gọi API load lại khi mở trang (đã được gọi trong constructor cubit, giữ lại RefreshIndicator)
+  State<MedicalHistoryPage> createState() => _MedicalHistoryPageState();
+}
 
+class _MedicalHistoryPageState extends State<MedicalHistoryPage> {
+  final TextEditingController _searchController = TextEditingController();
+  String _currentRole = 'PATIENT'; // Khởi tạo vai trò
+
+  @override
+  void initState() {
+    super.initState();
+    // Lấy vai trò hiện tại
+    final authState = context.read<AuthCubit>().state;
+    if (authState is AuthAuthenticated) {
+      _currentRole = authState.role;
+    }
+
+    // Nếu là Bác sĩ, không tự động gọi API (vì API /me/records là của Patient)
+    if (_currentRole == 'PATIENT') {
+      context.read<MedicalRecordCubit>().fetchMedicalRecords();
+    }
+
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  @override
+  void dispose() {
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  // LOGIC TÌM KIẾM: debounce nhẹ nhàng để gọi API/Logic filter trong repo
+  void _onSearchChanged() {
+    if (_currentRole == 'PATIENT') {
+      context.read<MedicalRecordCubit>().fetchMedicalRecords(
+            query: _searchController.text.trim(),
+          );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_currentRole == 'DOCTOR' || _currentRole == 'ADMIN') {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.history_edu,
+                  color: AppColors.primaryColor, size: 50),
+              const SizedBox(height: 10),
+              const Text('Chức năng "Bệnh Án Đã Khám"',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 10),
+              Text(
+                'Mobile App hiện không hỗ trợ tính năng xem và tìm kiếm bệnh án mà Bác sĩ đã tạo.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: AppColors.textColor),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                'Vui lòng sử dụng trang "Bệnh nhân của tôi" trên giao diện Web Admin để tra cứu lịch sử khám.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    color: AppColors.red, fontStyle: FontStyle.italic),
+              ),
+              const SizedBox(height: 10),
+              // Thông báo lỗi cũ (chỉ để giải thích)
+              Text('Lỗi API: Forbidden',
+                  style: TextStyle(
+                      color: AppColors.red, fontWeight: FontWeight.bold)),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // === Dành cho Bệnh nhân ===
     return BlocConsumer<MedicalRecordCubit, MedicalRecordState>(
       listener: (context, state) {
         if (state is MedicalRecordLoadFailure) {
@@ -26,45 +105,91 @@ class MedicalHistoryPage extends StatelessWidget {
         }
       },
       builder: (context, state) {
-        if (state is MedicalRecordLoading || state is MedicalRecordInitial) {
-          return const Center(
-              child: CircularProgressIndicator(color: AppColors.primaryColor));
-        }
-
         final records = state is MedicalRecordLoadSuccess
             ? state.records
             : <MedicalRecordModel>[];
 
-        if (records.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Text('Bạn chưa có lịch sử khám bệnh nào.',
-                    style: TextStyle(fontSize: 16, color: AppColors.hintColor)),
-                const SizedBox(height: 10),
-                ElevatedButton(
-                  onPressed: () =>
-                      context.read<MedicalRecordCubit>().fetchMedicalRecords(),
-                  child: const Text('Tải lại'),
+        return Column(
+          children: [
+            // Ô TÌM KIẾM
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: 'Tìm kiếm theo Bác sĩ, Chẩn đoán...',
+                  prefixIcon:
+                      const Icon(Icons.search, color: AppColors.hintColor),
+                  contentPadding:
+                      const EdgeInsets.symmetric(vertical: 15, horizontal: 20),
+                  filled: true,
+                  fillColor: AppColors.white,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(
+                        color: AppColors.primaryColor, width: 1.5),
+                  ),
                 ),
-              ],
+              ),
             ),
-          );
-        }
 
-        return RefreshIndicator(
-          onRefresh: () =>
-              context.read<MedicalRecordCubit>().fetchMedicalRecords(),
-          child: ListView.builder(
-            padding: const EdgeInsets.all(16.0),
-            itemCount: records.length,
-            itemBuilder: (context, index) {
-              return _buildRecordCard(records[index]);
-            },
-          ),
+            // DANH SÁCH BỆNH ÁN
+            Expanded(
+              child: _buildBodyContent(context, state, records),
+            ),
+          ],
         );
       },
+    );
+  }
+
+  Widget _buildBodyContent(BuildContext context, MedicalRecordState state,
+      List<MedicalRecordModel> records) {
+    if (state is MedicalRecordLoading || state is MedicalRecordInitial) {
+      return const Center(
+          child: CircularProgressIndicator(color: AppColors.primaryColor));
+    }
+
+    if (records.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+                _searchController.text.isNotEmpty
+                    ? 'Không tìm thấy kết quả nào trùng khớp.'
+                    : 'Bạn chưa có lịch sử khám bệnh nào.',
+                style:
+                    const TextStyle(fontSize: 16, color: AppColors.hintColor)),
+            const SizedBox(height: 10),
+            ElevatedButton(
+              onPressed: () {
+                _searchController.clear();
+                context.read<MedicalRecordCubit>().fetchMedicalRecords();
+              },
+              child: const Text('Tải lại/Bỏ tìm kiếm'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: () {
+        _searchController.clear();
+        return context.read<MedicalRecordCubit>().fetchMedicalRecords();
+      },
+      child: ListView.builder(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+        itemCount: records.length,
+        itemBuilder: (context, index) {
+          return _buildRecordCard(records[index]);
+        },
+      ),
     );
   }
 

@@ -1,10 +1,15 @@
+// lib/app/domain/repositories/appointment/appointment_repository.dart
+
 // ignore_for_file: empty_catches, unused_catch_clause
 
 import 'package:dio/dio.dart';
 import 'package:hospital_booking_app/app/data/models/appointment_request_model.dart';
 import 'package:hospital_booking_app/app/data/models/payment_models.dart';
 import 'package:hospital_booking_app/app/data/models/appointment_response_model.dart';
-import 'package:hospital_booking_app/app/data/models/appointment_list_model.dart'; // <-- THÊM IMPORT
+import 'package:hospital_booking_app/app/data/models/appointment_list_model.dart';
+import 'package:hospital_booking_app/app/core/di/injection_container.dart';
+import 'package:hospital_booking_app/app/presentation/features/auth/bloc/auth_cubit.dart';
+import 'package:hospital_booking_app/app/presentation/features/auth/bloc/auth_state.dart';
 
 abstract class AppointmentRepository {
   // 1. Tạo lịch hẹn (POST /api/appointments)
@@ -19,12 +24,12 @@ abstract class AppointmentRepository {
   Future<TransactionStatusResponseModel> checkTransactionStatus(
       int transactionId);
 
-  // 4. LẤY DANH SÁCH LỊCH HẸN CỦA TÔI
+  // 4. LẤY DANH SÁCH LỊCH HẸN CỦA TÔI (Cho cả Bệnh nhân và Bác sĩ)
   Future<List<AppointmentListModel>> fetchMyAppointments();
 
   // 5. ĐỔI LỊCH (RESCHEDULE)
   Future<AppointmentResponseModel> rescheduleAppointment(
-      int appointmentId, String newDateTime); // <-- KHAI BÁO MỚI
+      int appointmentId, String newDateTime);
 
   // 6. MÔ PHỎNG CALLBACK
   Future<void> simulateSuccessfulPayment(int transactionId);
@@ -54,20 +59,6 @@ class AppointmentRepositoryImpl implements AppointmentRepository {
     } on DioException catch (e) {
       String errorMessage =
           e.response?.data['message'] ?? 'Lỗi tạo lịch hẹn không xác định.';
-      throw Exception(errorMessage);
-    }
-  }
-
-  // API MỚI: Lấy danh sách lịch hẹn
-  @override
-  Future<List<AppointmentListModel>> fetchMyAppointments() async {
-    try {
-      final response = await dio.get('/api/appointments/me'); // <-- API BE
-      final List<dynamic> data = response.data;
-      return data.map((json) => AppointmentListModel.fromJson(json)).toList();
-    } on DioException catch (e) {
-      String errorMessage =
-          e.response?.data['message'] ?? 'Lỗi lấy danh sách lịch hẹn.';
       throw Exception(errorMessage);
     }
   }
@@ -102,6 +93,31 @@ class AppointmentRepositoryImpl implements AppointmentRepository {
     }
   }
 
+  // API 4: Lấy danh sách lịch hẹn (QUAN TRỌNG)
+  @override
+  Future<List<AppointmentListModel>> fetchMyAppointments() async {
+    final authState = sl<AuthCubit>().state;
+    String endpoint;
+
+    // PHÂN BIỆT API DỰA TRÊN VAI TRÒ
+    if (authState is AuthAuthenticated &&
+        (authState.role == 'DOCTOR' || authState.role == 'ADMIN')) {
+      endpoint = '/api/doctors/me/appointments'; // API Bác sĩ
+    } else {
+      endpoint = '/api/appointments/me'; // API Bệnh nhân
+    }
+
+    try {
+      final response = await dio.get(endpoint);
+      final List<dynamic> data = response.data;
+      return data.map((json) => AppointmentListModel.fromJson(json)).toList();
+    } on DioException catch (e) {
+      String errorMessage =
+          e.response?.data['message'] ?? 'Lỗi lấy danh sách lịch hẹn.';
+      throw Exception(errorMessage);
+    }
+  }
+
   // API MỚI: Đổi lịch (Reschedule)
   @override
   Future<AppointmentResponseModel> rescheduleAppointment(
@@ -109,9 +125,7 @@ class AppointmentRepositoryImpl implements AppointmentRepository {
     try {
       final response = await dio.put(
         '/api/appointments/$appointmentId/reschedule',
-        data: {
-          'newAppointmentDateTime': newDateTime
-        }, // Dùng DTO AppointmentUpdateDTO của BE
+        data: {'newAppointmentDateTime': newDateTime},
       );
       return AppointmentResponseModel.fromJson(response.data);
     } on DioException catch (e) {
@@ -121,7 +135,8 @@ class AppointmentRepositoryImpl implements AppointmentRepository {
     }
   }
 
-  // API MÔ PHỎNG: Giữ lại
+  // ... (các hàm khác giữ nguyên)
+
   @override
   Future<void> simulateSuccessfulPayment(int transactionId) async {
     try {

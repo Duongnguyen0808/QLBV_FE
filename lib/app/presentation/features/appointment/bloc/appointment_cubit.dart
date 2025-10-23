@@ -1,11 +1,11 @@
-// lib/app/domain/appointment/appointment_cubit.dart
+// lib/app/presentation/features/appointment/bloc/appointment_cubit.dart
 
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:hospital_booking_app/app/core/di/injection_container.dart';
 import 'package:hospital_booking_app/app/data/models/appointment_list_model.dart';
 import 'package:hospital_booking_app/app/domain/repositories/appointment/appointment_repository.dart';
-import 'package:hospital_booking_app/app/data/models/appointment_response_model.dart'; // Cần model này
+import 'package:hospital_booking_app/app/data/models/appointment_response_model.dart';
 
 // --- State ---
 abstract class AppointmentState extends Equatable {
@@ -37,10 +37,11 @@ class AppointmentCubit extends Cubit<AppointmentState> {
   final AppointmentRepository _appointmentRepo = sl<AppointmentRepository>();
 
   AppointmentCubit() : super(AppointmentInitial()) {
-    fetchAppointments();
+    // KHÔNG TỰ ĐỘNG GỌI FETCH KHI KHỞI TẠO NỮA
+    // Thay vào đó, nó được gọi thủ công từ `main.dart` sau khi đăng nhập thành công.
   }
 
-  // HÀM SẮP XẾP LỊCH HẸN THEO THỨ TỰ ƯU TIÊN
+  // HÀM SẮP XẾP LỊCH HẸN THEO THỨ TỰ ƯU TIÊN (Giữ nguyên)
   List<AppointmentListModel> _sortAppointments(
       List<AppointmentListModel> list) {
     list.sort((a, b) {
@@ -66,7 +67,9 @@ class AppointmentCubit extends Cubit<AppointmentState> {
     return list;
   }
 
+  // SỬA: BỎ LOGIC BẮT ĐẦU CUBIT ĐI VÀ LÀM NÓ THUẦN HƠN
   Future<void> fetchAppointments() async {
+    // Chỉ emit Loading nếu trạng thái hiện tại không phải Loading
     if (state is! AppointmentLoading) {
       emit(AppointmentLoading());
     }
@@ -83,17 +86,15 @@ class AppointmentCubit extends Cubit<AppointmentState> {
     }
   }
 
-  // THÊM HÀM ĐỔI LỊCH VÀ RELOAD
+  // Giữ nguyên các hàm khác (rescheduleAppointment, cancelAppointment, ...)
   Future<AppointmentResponseModel> rescheduleAppointment(
       int appointmentId, String newDateTime) async {
     try {
       final response = await _appointmentRepo.rescheduleAppointment(
           appointmentId, newDateTime);
-      // Sau khi đổi lịch thành công, reload lại danh sách
       await fetchAppointments();
       return response;
     } catch (e) {
-      // Bắn lỗi để UI xử lý (Snackbar)
       throw Exception(e.toString().replaceFirst('Exception: ', ''));
     }
   }
@@ -101,23 +102,14 @@ class AppointmentCubit extends Cubit<AppointmentState> {
   Future<void> cancelAppointment(int appointmentId) async {
     final currentState = state;
     try {
-      // Bắt đầu Loading để chặn hành động
       emit(AppointmentLoading());
-
       await _appointmentRepo.cancelAppointment(appointmentId);
-
-      // Sau khi hủy thành công, reload lại danh sách (và nó sẽ được sắp xếp lại)
       await fetchAppointments();
     } catch (e) {
-      // Khi hủy lỗi, emit lỗi qua listener và giữ lại danh sách cũ nếu có
       String errorMessage = e.toString().replaceFirst('Exception: ', '');
-
       if (currentState is AppointmentLoadSuccess) {
-        // Vẫn hiển thị danh sách cũ, nhưng emit lỗi để Snackbar thông báo
         emit(AppointmentLoadSuccess(currentState.appointments));
       }
-
-      // Dùng throw để listener trong BlocConsumer bắt lỗi và hiển thị Snackbar
       throw Exception(errorMessage);
     }
   }

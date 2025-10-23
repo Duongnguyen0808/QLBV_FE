@@ -7,11 +7,11 @@ import 'package:hospital_booking_app/app/core/di/injection_container.dart';
 import 'package:hospital_booking_app/app/data/models/specialty_model.dart';
 import 'package:hospital_booking_app/app/data/models/user_model.dart';
 import 'package:hospital_booking_app/app/data/models/doctor_search_result_model.dart';
-import 'package:hospital_booking_app/app/presentation/features/booking/pages/bloc/booking_cubit.dart';
+import 'package:hospital_booking_app/app/presentation/features/booking/bloc/booking_cubit.dart';
 import 'package:hospital_booking_app/app/presentation/features/booking/pages/doctor_list_page.dart';
 import 'package:hospital_booking_app/app/presentation/features/booking/pages/specialty_list_page.dart';
 import 'package:hospital_booking_app/app/domain/repositories/data/data_repository.dart';
-import 'package:hospital_booking_app/app/presentation/features/booking/pages/appointment_detail_page.dart'; // THÊM IMPORT NÀY
+import 'package:hospital_booking_app/app/presentation/features/appointment/pages/appointment_detail_page.dart'; // THÊM IMPORT NÀY
 
 class BookingPage extends StatelessWidget {
   const BookingPage({super.key});

@@ -1,54 +1,51 @@
-// lib/app/presentation/main_tab_controller.dart
+// lib/app/presentation/doctor_main_tab_controller.dart
 
 import 'package:flutter/material.dart';
 import 'package:hospital_booking_app/app/core/constants/app_colors.dart';
 import 'package:hospital_booking_app/app/presentation/features/appointment/pages/appointment_list_page.dart';
-import 'package:hospital_booking_app/app/presentation/features/booking/pages/booking_page.dart';
 import 'package:hospital_booking_app/app/presentation/features/medical_record/pages/medical_history_page.dart';
 import 'package:hospital_booking_app/app/presentation/features/profile/pages/profile_page.dart';
 
-class MainTabController extends StatefulWidget {
-  const MainTabController({super.key});
+class DoctorMainTabController extends StatefulWidget {
+  const DoctorMainTabController({super.key});
 
   @override
-  State<MainTabController> createState() => _MainTabControllerState();
+  State<DoctorMainTabController> createState() =>
+      _DoctorMainTabControllerState();
 }
 
-class _MainTabControllerState extends State<MainTabController> {
+class _DoctorMainTabControllerState extends State<DoctorMainTabController> {
   int _currentIndex = 0;
 
   final List<Widget> _pages = [
-    const BookingPage(), // Tab 1: Đặt Lịch (Trang Chủ)
-    AppointmentListPage(),
-    const MedicalHistoryPage(),
-    const ProfilePage(),
+    AppointmentListPage(), // Tab 1: Danh sách Lịch hẹn (Sẽ bao gồm chức năng nhắc nhở)
+    const MedicalHistoryPage(), // Tab 2: Lịch Sử Bệnh án
+    const ProfilePage(), // Tab 3: Hồ Sơ Cá Nhân
   ];
 
   final List<BottomNavigationBarItem> _navBarItems = const [
-    BottomNavigationBarItem(
-      icon: Icon(Icons.home), // Thay đổi icon cho Trang Chủ
-      label: 'Trang Chủ', // ĐỔI TÊN
-    ),
     BottomNavigationBarItem(
       icon: Icon(Icons.calendar_today),
       label: 'Lịch Hẹn',
     ),
     BottomNavigationBarItem(
-      icon: Icon(Icons.history),
-      label: 'Lịch Sử Khám',
+      icon: Icon(Icons.history_edu), // Lịch sử Bệnh án
+      label: 'Bệnh Án',
     ),
     BottomNavigationBarItem(
       icon: Icon(Icons.person),
-      label: 'Cá Nhân',
+      label: 'Hồ Sơ',
     ),
   ];
 
   @override
   Widget build(BuildContext context) {
+    final currentTitle = _navBarItems[_currentIndex].label!;
+
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          _navBarItems[_currentIndex].label!,
+          currentTitle,
           style: const TextStyle(
               color: AppColors.primaryColor, fontWeight: FontWeight.bold),
         ),

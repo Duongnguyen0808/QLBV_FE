@@ -20,7 +20,8 @@ class AppointmentDetailPage extends StatefulWidget {
 }
 
 class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
-  DateTime _selectedDate = DateTime.now().add(const Duration(days: 1));
+  // Khởi tạo _selectedDate là ngày hiện tại (index 0)
+  DateTime _selectedDate = DateTime.now();
   String? _selectedTimeSlot;
   List<String> _timeSlots = [];
   bool _isLoadingSlots = false;
@@ -30,8 +31,9 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
   @override
   void initState() {
     super.initState();
-    // Bắt buộc phải có locale Tiếng Việt để hiển thị ngày
+    // Khởi tạo locale Tiếng Việt để hiển thị ngày
     Intl.defaultLocale = 'vi_VN';
+    // Load slot cho ngày hiện tại (Today)
     _fetchTimeSlots(_selectedDate);
   }
 
@@ -106,7 +108,7 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
     });
   }
 
-  // Hàm xử lý Đặt lịch và Thanh toán (ĐÃ SỬA)
+  // Hàm xử lý Đặt lịch và Thanh toán
   void _bookAppointment() async {
     if (_selectedTimeSlot == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -116,7 +118,6 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
     }
 
     final dateString = DateFormat('yyyy-MM-dd').format(_selectedDate);
-    // CHUỖI THỜI GIAN HẸN (ĐẦU VÀO CỦA BE VÀ ĐẦU VÀO CỦA TRANG QR)
     final appointmentDateTime = '${dateString}T$_selectedTimeSlot:00+07:00';
 
     final request = AppointmentRequestModel(
@@ -150,7 +151,7 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
             qrUrl: paymentResponse.paymentUrl,
             transactionId: paymentResponse.transactionId,
             appointmentId: newAppointmentId,
-            appointmentDateTime: appointmentDateTime, // <--- BỔ SUNG
+            appointmentDateTime: appointmentDateTime,
           ),
         ));
       }
@@ -164,9 +165,6 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
       }
     }
   }
-
-  // Hàm này được LOẠI BỎ (xóa code cũ)
-  // String _mapEnglishDayToVietnamese(String englishDay) { ... }
 
   @override
   Widget build(BuildContext context) {
@@ -259,6 +257,7 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
                       fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 Text(
+                  // Hiển thị Chuyên khoa của Bác sĩ
                   doc.specialtyName,
                   style: TextStyle(color: AppColors.primaryColor, fontSize: 14),
                 ),
@@ -298,6 +297,7 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
 
   Widget _buildDateSelector() {
     final today = DateTime.now();
+    // SỬA: Bắt đầu từ ngày hôm nay (index 0 là today)
     final dates = List.generate(7, (i) => today.add(Duration(days: i)));
 
     return Column(
@@ -315,19 +315,20 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
             itemCount: dates.length,
             itemBuilder: (context, index) {
               final date = dates[index];
-              if (index == 0) return const SizedBox.shrink();
 
               final isSelected = DateFormat('dd').format(date) ==
                   DateFormat('dd').format(_selectedDate);
 
-              // Sử dụng locale vi_VN để có tên ngày tiếng Việt
               String dayNameVietnamese =
                   DateFormat('EEE', 'vi_VN').format(date);
-              if (dayNameVietnamese.contains('Th')) {
-                dayNameVietnamese = dayNameVietnamese.replaceFirst('Th', 'Th ');
-              }
-              if (dayNameVietnamese.contains('CN')) {
+
+              // SỬA: Hiển thị "H.Nay" cho ngày đầu tiên
+              if (index == 0) {
+                dayNameVietnamese = 'H.Nay';
+              } else if (dayNameVietnamese.contains('CN')) {
                 dayNameVietnamese = 'CN';
+              } else if (dayNameVietnamese.contains('Th')) {
+                dayNameVietnamese = dayNameVietnamese.replaceFirst('Th', 'Th ');
               }
 
               return GestureDetector(

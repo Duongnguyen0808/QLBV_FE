@@ -5,7 +5,7 @@ import 'package:hospital_booking_app/app/core/constants/app_colors.dart';
 import 'package:hospital_booking_app/app/core/di/injection_container.dart';
 import 'package:hospital_booking_app/app/data/models/doctor_search_result_model.dart';
 import 'package:hospital_booking_app/app/domain/repositories/data/data_repository.dart';
-import 'package:hospital_booking_app/app/presentation/features/booking/pages/appointment_detail_page.dart';
+import 'package:hospital_booking_app/app/presentation/features/appointment/pages/appointment_detail_page.dart';
 
 // CHUYỂN TỪ StatelessWidget SANG StatefulWidget
 class DoctorListPage extends StatefulWidget {

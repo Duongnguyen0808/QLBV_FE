@@ -5,14 +5,16 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hospital_booking_app/app/core/di/injection_container.dart'
     as di;
 import 'package:hospital_booking_app/app/core/di/injection_container.dart';
-import 'package:hospital_booking_app/app/domain/auth/auth_cubit.dart';
-import 'package:hospital_booking_app/app/domain/auth/auth_state.dart';
 import 'package:hospital_booking_app/app/presentation/features/appointment/bloc/appointment_cubit.dart';
+import 'package:hospital_booking_app/app/presentation/features/auth/bloc/auth_cubit.dart';
+import 'package:hospital_booking_app/app/presentation/features/auth/bloc/auth_state.dart';
 import 'package:hospital_booking_app/app/presentation/features/auth/pages/sign_in_page.dart';
 import 'package:hospital_booking_app/app/presentation/features/medical_record/bloc/medical_record_cubit.dart';
 import 'package:hospital_booking_app/app/presentation/features/profile/bloc/profile_cubit.dart';
 import 'package:hospital_booking_app/app/presentation/main_tab_controller.dart';
 import 'package:intl/date_symbol_data_local.dart';
+
+import 'package:hospital_booking_app/app/presentation/doctor_main_tab_controller.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -34,6 +36,7 @@ class MyApp extends StatelessWidget {
         BlocProvider<AuthCubit>(
           create: (context) => sl<AuthCubit>()..checkAuthStatus(),
         ),
+        // ĐĂNG KÝ TẤT CẢ CÁC CUBIT CẦN DÙNG CHO CẢ ỨNG DỤNG
         BlocProvider<AppointmentCubit>(
           create: (context) => sl<AppointmentCubit>(),
         ),
@@ -51,7 +54,6 @@ class MyApp extends StatelessWidget {
           DefaultMaterialLocalizations.delegate,
           DefaultWidgetsLocalizations.delegate,
         ],
-        debugShowCheckedModeBanner: false,
         theme: ThemeData(
           primarySwatch: Colors.blue,
           visualDensity: VisualDensity.adaptivePlatformDensity,
@@ -64,7 +66,11 @@ class MyApp extends StatelessWidget {
               );
             }
             if (state is AuthAuthenticated) {
-              return const MainTabController();
+              // LOGIC QUAN TRỌNG: CHUYỂN HƯỚNG THEO VAI TRÒ
+              if (state.role == 'DOCTOR' || state.role == 'ADMIN') {
+                return const DoctorMainTabController(); // 3 Tab cho Bác sĩ/Admin
+              }
+              return const MainTabController(); // 4 Tab cho Bệnh nhân
             }
             return const SignInPage();
           },

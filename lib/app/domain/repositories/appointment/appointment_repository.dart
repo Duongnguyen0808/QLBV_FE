@@ -19,16 +19,20 @@ abstract class AppointmentRepository {
   Future<TransactionStatusResponseModel> checkTransactionStatus(
       int transactionId);
 
-  // 4. LẤY DANH SÁCH LỊCH HẸN CỦA TÔI (MỚI)
+  // 4. LẤY DANH SÁCH LỊCH HẸN CỦA TÔI
   Future<List<AppointmentListModel>> fetchMyAppointments();
 
-  // 5. MÔ PHỎNG CALLBACK
+  // 5. ĐỔI LỊCH (RESCHEDULE)
+  Future<AppointmentResponseModel> rescheduleAppointment(
+      int appointmentId, String newDateTime); // <-- KHAI BÁO MỚI
+
+  // 6. MÔ PHỎNG CALLBACK
   Future<void> simulateSuccessfulPayment(int transactionId);
 
-  // 6. Lấy lịch làm việc có sẵn của bác sĩ (Mô phỏng/TBD: GET /api/doctors/available)
+  // 7. Lấy lịch làm việc có sẵn của bác sĩ (Mô phỏng/TBD: GET /api/doctors/available)
   Future<List<String>> fetchAvailableTimeSlots(int doctorId, String date);
 
-  // 7. Hủy lịch hẹn
+  // 8. Hủy lịch hẹn
   Future<void> cancelAppointment(int appointmentId);
 }
 
@@ -95,6 +99,25 @@ class AppointmentRepositoryImpl implements AppointmentRepository {
       return TransactionStatusResponseModel.fromJson(response.data);
     } on DioException catch (e) {
       throw Exception('Lỗi kiểm tra trạng thái giao dịch: ${e.message}');
+    }
+  }
+
+  // API MỚI: Đổi lịch (Reschedule)
+  @override
+  Future<AppointmentResponseModel> rescheduleAppointment(
+      int appointmentId, String newDateTime) async {
+    try {
+      final response = await dio.put(
+        '/api/appointments/$appointmentId/reschedule',
+        data: {
+          'newAppointmentDateTime': newDateTime
+        }, // Dùng DTO AppointmentUpdateDTO của BE
+      );
+      return AppointmentResponseModel.fromJson(response.data);
+    } on DioException catch (e) {
+      String errorMessage =
+          e.response?.data['message'] ?? 'Lỗi đổi lịch không xác định.';
+      throw Exception(errorMessage);
     }
   }
 

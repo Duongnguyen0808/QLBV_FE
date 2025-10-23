@@ -3,8 +3,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hospital_booking_app/app/core/constants/app_colors.dart';
-import 'package:hospital_booking_app/app/domain/auth/auth_cubit.dart';
-import 'package:hospital_booking_app/app/domain/auth/auth_state.dart';
+import 'package:hospital_booking_app/app/presentation/features/auth/bloc/auth_cubit.dart';
+import 'package:hospital_booking_app/app/presentation/features/auth/bloc/auth_state.dart';
 import 'package:hospital_booking_app/app/presentation/features/auth/pages/sign_up_page.dart';
 
 class SignInPage extends StatefulWidget {

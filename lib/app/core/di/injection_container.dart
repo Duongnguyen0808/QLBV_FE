@@ -9,13 +9,13 @@ import 'package:hospital_booking_app/app/presentation/features/profile/bloc/prof
 import 'package:pretty_dio_logger/pretty_dio_logger.dart';
 
 import 'package:hospital_booking_app/app/domain/repositories/auth/auth_repository.dart';
-import 'package:hospital_booking_app/app/domain/auth/auth_cubit.dart';
+import 'package:hospital_booking_app/app/presentation/features/auth/bloc/auth_cubit.dart';
 import 'package:hospital_booking_app/app/core/config/app_config.dart';
 import 'package:hospital_booking_app/app/core/utils/dio_interceptors.dart';
 import 'package:hospital_booking_app/app/domain/repositories/data/data_repository.dart';
 import 'package:hospital_booking_app/app/domain/repositories/appointment/appointment_repository.dart';
 
-import 'package:hospital_booking_app/app/presentation/features/booking/pages/bloc/booking_cubit.dart';
+import 'package:hospital_booking_app/app/presentation/features/booking/bloc/booking_cubit.dart';
 
 final sl = GetIt.instance;
 

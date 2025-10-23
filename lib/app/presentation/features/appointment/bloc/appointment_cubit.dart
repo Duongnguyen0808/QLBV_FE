@@ -5,6 +5,7 @@ import 'package:equatable/equatable.dart';
 import 'package:hospital_booking_app/app/core/di/injection_container.dart';
 import 'package:hospital_booking_app/app/data/models/appointment_list_model.dart';
 import 'package:hospital_booking_app/app/domain/repositories/appointment/appointment_repository.dart';
+import 'package:hospital_booking_app/app/data/models/appointment_response_model.dart'; // Cần model này
 
 // --- State ---
 abstract class AppointmentState extends Equatable {
@@ -79,6 +80,21 @@ class AppointmentCubit extends Cubit<AppointmentState> {
     } catch (e) {
       emit(
           AppointmentLoadFailure(e.toString().replaceFirst('Exception: ', '')));
+    }
+  }
+
+  // THÊM HÀM ĐỔI LỊCH VÀ RELOAD
+  Future<AppointmentResponseModel> rescheduleAppointment(
+      int appointmentId, String newDateTime) async {
+    try {
+      final response = await _appointmentRepo.rescheduleAppointment(
+          appointmentId, newDateTime);
+      // Sau khi đổi lịch thành công, reload lại danh sách
+      await fetchAppointments();
+      return response;
+    } catch (e) {
+      // Bắn lỗi để UI xử lý (Snackbar)
+      throw Exception(e.toString().replaceFirst('Exception: ', ''));
     }
   }
 

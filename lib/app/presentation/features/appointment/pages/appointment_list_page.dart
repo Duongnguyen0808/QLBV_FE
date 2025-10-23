@@ -6,12 +6,47 @@ import 'package:hospital_booking_app/app/core/constants/app_colors.dart';
 import 'package:hospital_booking_app/app/data/models/appointment_list_model.dart';
 import 'package:hospital_booking_app/app/presentation/features/appointment/bloc/appointment_cubit.dart';
 import 'package:intl/intl.dart';
+import 'package:hospital_booking_app/app/core/di/injection_container.dart';
+import 'package:hospital_booking_app/app/domain/repositories/data/data_repository.dart';
+import 'package:hospital_booking_app/app/presentation/features/appointment/pages/reschedule_page.dart';
 
 class AppointmentListPage extends StatelessWidget {
-  const AppointmentListPage({super.key});
+  AppointmentListPage({super.key});
 
-  static const String contactZalo = '0345745181';
-  static const String contactPhone = '0345745181';
+  final DataRepository _dataRepo = sl<DataRepository>();
+
+  // HÀM MỚI: Fetch thông tin bác sĩ chi tiết và điều hướng đến trang đổi lịch
+  void _fetchDoctorAndNavigate(
+      BuildContext context, AppointmentListModel appt) async {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Đang tải thông tin bác sĩ...')),
+    );
+
+    // GIẢ ĐỊNH: Ta chỉ có thể search theo tên và lấy bác sĩ đầu tiên
+    try {
+      final doctors = await _dataRepo.searchDoctors(name: appt.doctorFullName);
+
+      if (context.mounted && doctors.isNotEmpty) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        Navigator.of(context).push(MaterialPageRoute(
+            builder: (c) =>
+                ReschedulePage(appointment: appt, doctor: doctors.first)));
+      } else if (context.mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Không tìm thấy thông tin bác sĩ chi tiết.')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi tải bác sĩ: ${e.toString()}')),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -44,6 +79,7 @@ class AppointmentListPage extends StatelessWidget {
                 const Text('Bạn chưa có lịch hẹn nào.',
                     style: TextStyle(fontSize: 16, color: AppColors.hintColor)),
                 const SizedBox(height: 10),
+                // Nút tải lại trong trường hợp tải thất bại (hoặc không có lịch)
                 ElevatedButton(
                   onPressed: () =>
                       context.read<AppointmentCubit>().fetchAppointments(),
@@ -71,7 +107,14 @@ class AppointmentListPage extends StatelessWidget {
   Widget _buildAppointmentCard(
       BuildContext context, AppointmentListModel appt) {
     // Kiểm tra quy tắc 6 giờ tương tự như màn hình QR
-    final canCancel = _canCancel(appt.appointmentDateTime);
+    final canRescheduleOrCancel =
+        _canRescheduleOrCancel(appt.appointmentDateTime);
+    final isActive = appt.status == 'CONFIRMED' ||
+        appt.status == 'PAID_PENDING' ||
+        appt.status == 'PENDING';
+
+    // Kiểm tra xem đã thanh toán (CONFIRMED) hay chưa
+    final isConfirmed = appt.status == 'CONFIRMED';
 
     return Card(
       margin: const EdgeInsets.only(bottom: 15),
@@ -85,9 +128,9 @@ class AppointmentListPage extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Lịch hẹn với Bác Sĩ',
-                  style: const TextStyle(
+                const Text(
+                  'Lịch hẹn với Bác sĩ',
+                  style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
                       color: AppColors.primaryColor),
@@ -119,33 +162,61 @@ class AppointmentListPage extends StatelessWidget {
             ),
 
             // NÚT HÀNH ĐỘNG
-            if (appt.status == 'PAID_PENDING')
-              _buildActionButton(
-                label: 'Tiếp tục Thanh toán',
-                color: AppColors.orange,
-                onPressed: () {
-                  // TODO: [TBD] Điều hướng sang trang thanh toán QR nếu cần
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                      content: Text(
-                          'Chức năng tiếp tục thanh toán chưa được triển khai.')));
-                },
-              )
-            else if (appt.status == 'CONFIRMED' && canCancel)
-              _buildActionButton(
-                label: 'Hủy Lịch Hẹn',
-                color: AppColors.red,
-                onPressed: () =>
-                    _showCancelDialog(context, appt), // <-- SỬ DỤNG HÀM MỚI
-              ),
+            if (isActive)
+              Column(
+                children: [
+                  const SizedBox(height: 10),
 
-            if (appt.status == 'CONFIRMED' && !canCancel)
-              Padding(
-                padding: const EdgeInsets.only(top: 8.0),
-                child: Text(
-                  '(Không thể hủy: < 6 giờ trước khám)',
-                  style: TextStyle(
-                      color: AppColors.red.withOpacity(0.7), fontSize: 12),
-                ),
+                  // Nút Đổi lịch chỉ xuất hiện nếu có thể hủy/đổi lịch
+                  if (canRescheduleOrCancel)
+                    _buildActionButton(
+                      label: 'Đổi Lịch Khám',
+                      color: AppColors.secondaryColor,
+                      onPressed: () => _fetchDoctorAndNavigate(context, appt),
+                    ),
+
+                  // Nút Thanh toán chỉ hiện khi CHƯA CONFIRMED và đang chờ thanh toán
+                  // Đã thanh toán (CONFIRMED) hoặc đã khám (COMPLETED) thì không hiện.
+                  if (appt.status == 'PAID_PENDING' || appt.status == 'PENDING')
+                    _buildActionButton(
+                      label: 'Tiếp tục Thanh toán',
+                      color: AppColors.orange,
+                      onPressed: () {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                            content: Text(
+                                'Chức năng tiếp tục thanh toán chưa được triển khai.')));
+                      },
+                    ),
+
+                  // Nút Hủy
+                  if (canRescheduleOrCancel)
+                    _buildActionButton(
+                      label: 'Hủy Lịch Hẹn',
+                      color: AppColors.red,
+                      onPressed: () => _showCancelDialog(context, appt),
+                    )
+                  else
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8.0),
+                      child: Text(
+                        '(Không thể hủy/đổi lịch: < 6 giờ trước khám)',
+                        style: TextStyle(
+                            color: AppColors.red.withOpacity(0.7),
+                            fontSize: 12),
+                      ),
+                    ),
+
+                  // THÊM: Nút Gửi Nhắc nhở (chỉ cho lịch hẹn hoạt động và chưa hoàn thành)
+                  if (isConfirmed ||
+                      appt.status == 'PENDING' ||
+                      appt.status == 'PAID_PENDING')
+                    _buildActionButton(
+                      label: 'Gửi Nhắc nhở Lịch hẹn (Email/SMS)',
+                      color: AppColors.primaryColor,
+                      onPressed: () =>
+                          _sendReminder(context, appt), // <-- HÀM MỚI
+                    ),
+                ],
               ),
           ],
         ),
@@ -153,7 +224,34 @@ class AppointmentListPage extends StatelessWidget {
     );
   }
 
-  // --- Helper Functions ---
+  // HÀM MỚI: Logic gửi nhắc nhở
+  void _sendReminder(BuildContext context, AppointmentListModel appt) {
+    // Đây là logic giả lập gọi EmailService/SMS Service của Backend
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content:
+            Text('Đang gửi nhắc nhở cho bệnh nhân ${appt.doctorFullName}...')));
+    // TODO: [TBD] Gọi API Backend để kích hoạt EmailService/SMSService
+    // Ví dụ: dio.post('/api/notifications/remind-appointment', data: {'appointmentId': appt.id})
+    Future.delayed(const Duration(seconds: 1), () {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Đã gửi thông báo nhắc nhở thành công!'),
+        backgroundColor: AppColors.green,
+      ));
+    });
+  }
+
+  // HÀM NÀY ĐỔI TÊN TỪ _canCancel
+  bool _canRescheduleOrCancel(String dateTimeString) {
+    try {
+      final scheduledTime = DateTime.parse(dateTimeString).toLocal();
+      final difference = scheduledTime.difference(DateTime.now());
+      // Quy tắc 6 giờ
+      return difference.inHours > 6;
+    } catch (e) {
+      return false;
+    }
+  }
 
   Widget _buildStatusBadge(String status) {
     Color color;
@@ -161,19 +259,19 @@ class AppointmentListPage extends StatelessWidget {
     switch (status) {
       case 'PENDING':
         color = AppColors.orange;
-        text = 'Chờ Xác Nhận (Chưa TT)';
+        text = 'Chờ Xác Nhận';
         break;
       case 'PAID_PENDING':
         color = AppColors.orange;
         text = 'Chờ Thanh Toán';
         break;
       case 'CONFIRMED':
-        color = AppColors.primaryColor;
-        text = 'Đã Thanh Toán'; // <-- DÒNG SỬA
+        color = AppColors.green;
+        text = 'Đã Thanh Toán';
         break;
       case 'COMPLETED':
         color = AppColors.green;
-        text = 'Đã Hoàn Thành';
+        text = 'Đã Khám'; // <-- ĐÃ SỬA
         break;
       case 'CANCELLED':
         color = AppColors.red;
@@ -202,7 +300,7 @@ class AppointmentListPage extends StatelessWidget {
       required Color color,
       required VoidCallback onPressed}) {
     return Padding(
-      padding: const EdgeInsets.only(top: 10.0),
+      padding: const EdgeInsets.only(top: 5.0),
       child: SizedBox(
         width: double.infinity,
         child: OutlinedButton(
@@ -220,58 +318,23 @@ class AppointmentListPage extends StatelessWidget {
     );
   }
 
-  // Kiểm tra quy tắc hủy (dưới 6 giờ)
-  bool _canCancel(String dateTimeString) {
-    try {
-      final scheduledTime = DateTime.parse(dateTimeString).toLocal();
-      final difference = scheduledTime.difference(DateTime.now());
-      return difference.inHours > 6;
-    } catch (e) {
-      return false;
-    }
-  }
-
   String _formatDateTime(String dateTimeString) {
     try {
-      // Đã đảm bảo locale vi_VN được khởi tạo trong main.dart
       final dateTime = DateTime.parse(dateTimeString).toLocal();
-      return DateFormat('HH:mm - EEE dd/MM/yyyy').format(dateTime);
+      // 'E' là viết tắt của ngày (Ví dụ: Thu, Fri)
+      return DateFormat('HH:mm - E d/MM/yyyy', 'vi_VN').format(dateTime);
     } catch (e) {
       return 'Lỗi định dạng ngày giờ';
     }
   }
 
-  // SỬA: Thêm logic hoàn tiền thủ công vào Dialog
   void _showCancelDialog(BuildContext context, AppointmentListModel appt) {
-    // Kiểm tra xem đây là lịch hẹn đã thanh toán hay chưa
-    final isPaid = appt.status == 'CONFIRMED';
-
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(
-            isPaid ? 'Xác nhận Hủy và Hoàn tiền' : 'Xác nhận Hủy Lịch hẹn'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-                'Bạn có chắc chắn muốn hủy lịch hẹn #${appt.id} với Bác sĩ ${appt.doctorFullName} vào ${_formatDateTime(appt.appointmentDateTime)} không?'),
-            if (isPaid) ...[
-              const SizedBox(height: 15),
-              Text(
-                'LƯU Ý HOÀN TIỀN:',
-                style: TextStyle(
-                    fontWeight: FontWeight.bold, color: AppColors.red),
-              ),
-              Text(
-                'Vui lòng liên hệ Zalo hoặc gọi đến số ${contactZalo} kèm theo Bill chuyển khoản để được hoàn lại tiền khám.',
-                style: TextStyle(
-                    color: AppColors.textColor.withOpacity(0.8), fontSize: 13),
-              ),
-            ]
-          ],
-        ),
+        title: const Text('Xác nhận Hủy'),
+        content: Text(
+            'Bạn có chắc chắn muốn hủy lịch hẹn với Bác sĩ ${appt.doctorFullName} vào ${_formatDateTime(appt.appointmentDateTime)} không?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
@@ -280,11 +343,10 @@ class AppointmentListPage extends StatelessWidget {
           TextButton(
             onPressed: () {
               Navigator.of(context).pop();
-              // Gọi hàm hủy lịch hẹn
               context.read<AppointmentCubit>().cancelAppointment(appt.id);
             },
-            child: Text(isPaid ? 'Hủy & Yêu cầu Hoàn tiền' : 'Hủy Lịch Hẹn',
-                style: const TextStyle(color: AppColors.red)),
+            child: const Text('Hủy Lịch Hẹn',
+                style: TextStyle(color: AppColors.red)),
           ),
         ],
       ),

@@ -1,4 +1,4 @@
-// lib/app/domain/auth/auth_state.dart (TẠO MỚI)
+// lib/app/domain/auth/auth_state.dart
 
 import 'package:equatable/equatable.dart';
 
@@ -12,9 +12,15 @@ class AuthInitial extends AuthState {}
 
 class AuthLoading extends AuthState {}
 
-class AuthAuthenticated extends AuthState {} // Đăng nhập thành công
+// SỬA: Phải có trường role để main.dart đọc được
+class AuthAuthenticated extends AuthState {
+  final String role; // Role: 'DOCTOR', 'PATIENT', 'ADMIN'
+  const AuthAuthenticated(this.role);
+  @override
+  List<Object> get props => [role];
+}
 
-class AuthUnauthenticated extends AuthState {} // Chưa đăng nhập
+class AuthUnauthenticated extends AuthState {}
 
 class AuthError extends AuthState {
   final String message;

@@ -1,7 +1,5 @@
 // lib/app/presentation/features/medical_record/pages/medical_history_page.dart
 
-// ignore_for_file: prefer_const_constructors
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hospital_booking_app/app/core/constants/app_colors.dart';
@@ -82,7 +80,7 @@ class MedicalHistoryPage extends StatelessWidget {
         // Dùng ExpansionTile để mở ra xem chi tiết
         tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         title: Text(
-          'Bệnh án ',
+          'Bệnh án #${record.id}',
           style: const TextStyle(
               fontWeight: FontWeight.bold,
               color: AppColors.primaryColor,
@@ -117,14 +115,20 @@ class MedicalHistoryPage extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // CHẨN ĐOÁN: Quan trọng
                 _buildDetailRow('Chẩn đoán', record.diagnosis,
-                    isImportant: true),
+                    isHighlight: true, isImportant: true),
+                // TRIỆU CHỨNG: Bình thường
                 _buildDetailRow('Triệu chứng', record.symptoms),
+                // DẤU HIỆU SINH TỒN: Bình thường
                 _buildDetailRow('Dấu hiệu sinh tồn', record.vitalSigns),
+                // KẾT QUẢ XÉT NGHIỆM: Bình thường
                 _buildDetailRow('Kết quả xét nghiệm', record.testResults),
+                // ĐƠN THUỐC: Nổi bật và MultiLine
                 _buildDetailRow('Đơn thuốc', record.prescription,
-                    isMultiLine: true),
-                _buildDetailRow('Ghi chú', record.notes),
+                    isMultiLine: true, isHighlight: true),
+                // GHI CHÚ: Nổi bật
+                _buildDetailRow('Ghi chú', record.notes, isHighlight: true),
                 if (record.reexaminationDate != null &&
                     record.reexaminationDate!.isNotEmpty)
                   _buildDetailRow('Tái khám', record.reexaminationDate!),
@@ -137,7 +141,9 @@ class MedicalHistoryPage extends StatelessWidget {
   }
 
   Widget _buildDetailRow(String title, String content,
-      {bool isMultiLine = false, bool isImportant = false}) {
+      {bool isMultiLine = false,
+      bool isImportant = false,
+      bool isHighlight = false}) {
     if (content.isEmpty) return const SizedBox.shrink();
 
     return Padding(
@@ -148,8 +154,12 @@ class MedicalHistoryPage extends StatelessWidget {
           Text(
             '$title:',
             style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: isImportant ? AppColors.red : AppColors.textColor,
+              fontWeight: isHighlight ? FontWeight.w800 : FontWeight.bold,
+              color: isImportant
+                  ? AppColors.red
+                  : (isHighlight
+                      ? AppColors.primaryColor
+                      : AppColors.textColor),
             ),
           ),
           const SizedBox(height: 4),
@@ -157,12 +167,23 @@ class MedicalHistoryPage extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: AppColors.lightGray,
+              color: isHighlight
+                  ? AppColors.primaryColor.withOpacity(0.08)
+                  : AppColors.lightGray, // Nền nhẹ
               borderRadius: BorderRadius.circular(8),
+              border: isHighlight
+                  ? Border.all(color: AppColors.primaryColor.withOpacity(0.3))
+                  : null, // Viền nhẹ
             ),
             child: Text(
               content,
-              style: const TextStyle(fontSize: 14.5),
+              style: TextStyle(
+                fontSize: 14.5,
+                fontWeight: isHighlight ? FontWeight.w500 : FontWeight.normal,
+                color: isHighlight
+                    ? AppColors.textColor.withOpacity(0.9)
+                    : AppColors.textColor,
+              ),
             ),
           ),
           if (!isMultiLine) const SizedBox(height: 8),

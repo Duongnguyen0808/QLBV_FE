@@ -30,6 +30,8 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
   @override
   void initState() {
     super.initState();
+    // Bắt buộc phải có locale Tiếng Việt để hiển thị ngày
+    Intl.defaultLocale = 'vi_VN';
     _fetchTimeSlots(_selectedDate);
   }
 
@@ -44,13 +46,13 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
 
     final List<String> availableSlots = [];
 
+    // Lấy tên ngày trong tuần theo chuẩn Enum (ví dụ: MONDAY)
     final String requestedDayEnglish =
         DateFormat('EEEE', 'en_US').format(date).toUpperCase();
-    final String dayInVietnameseAPI =
-        _mapEnglishDayToVietnamese(requestedDayEnglish);
 
+    // Lọc lịch làm việc dựa trên tên Enum Tiếng Anh (dayOfWeekEnglish)
     final schedulesForDay = widget.doctor.schedules
-        .where((s) => s.dayOfWeek == dayInVietnameseAPI)
+        .where((s) => s.dayOfWeekEnglish == requestedDayEnglish)
         .toList();
 
     if (schedulesForDay.isEmpty) {
@@ -68,19 +70,25 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
         final startTimeStr = parts[0];
         final endTimeStr = parts[1];
 
+        // Tạo DateTime giả định (vì LocalTime không có ngày)
         var currentSlot = DateTime.parse('2025-01-01 $startTimeStr:00');
         final endTime = DateTime.parse('2025-01-01 $endTimeStr:00');
 
+        // Lặp qua các slot 30 phút
         while (currentSlot.isBefore(endTime)) {
           final slotStartTime = DateTime(date.year, date.month, date.day,
               currentSlot.hour, currentSlot.minute);
           final slotEndTime = slotStartTime.add(const Duration(minutes: 30));
 
+          // Lấy giờ kết thúc ca làm việc thực tế trong ngày hiện tại
+          final actualEndTimeOfDay = DateTime(
+              date.year, date.month, date.day, endTime.hour, endTime.minute);
+
+          // Kiểm tra 1: Slot phải trong tương lai (ít nhất 1 giờ)
+          // Kiểm tra 2: Slot phải kết thúc trước hoặc đúng giờ kết thúc ca làm việc
           if (slotStartTime
                   .isAfter(DateTime.now().add(const Duration(hours: 1))) &&
-              slotEndTime.isBefore(DateTime(date.year, date.month, date.day,
-                      endTime.hour, endTime.minute)
-                  .add(const Duration(minutes: 1)))) {
+              !slotEndTime.isAfter(actualEndTimeOfDay)) {
             final slotString = DateFormat('HH:mm').format(currentSlot);
             availableSlots.add(slotString);
           }
@@ -98,7 +106,7 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
     });
   }
 
-  // Hàm xử lý Đặt lịch và Thanh toán
+  // Hàm xử lý Đặt lịch và Thanh toán (ĐÃ SỬA)
   void _bookAppointment() async {
     if (_selectedTimeSlot == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -108,6 +116,7 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
     }
 
     final dateString = DateFormat('yyyy-MM-dd').format(_selectedDate);
+    // CHUỖI THỜI GIAN HẸN (ĐẦU VÀO CỦA BE VÀ ĐẦU VÀO CỦA TRANG QR)
     final appointmentDateTime = '${dateString}T$_selectedTimeSlot:00+07:00';
 
     final request = AppointmentRequestModel(
@@ -140,7 +149,8 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
             amount: paymentResponse.amount,
             qrUrl: paymentResponse.paymentUrl,
             transactionId: paymentResponse.transactionId,
-            appointmentId: newAppointmentId, // DÒNG BỔ SUNG QUAN TRỌNG
+            appointmentId: newAppointmentId,
+            appointmentDateTime: appointmentDateTime, // <--- BỔ SUNG
           ),
         ));
       }
@@ -155,7 +165,8 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
     }
   }
 
-  // ... (các hàm _buildDoctorHeader, _buildDateSelector, _buildTimeSlotSelector, _mapEnglishDayToVietnamese giữ nguyên)
+  // Hàm này được LOẠI BỎ (xóa code cũ)
+  // String _mapEnglishDayToVietnamese(String englishDay) { ... }
 
   @override
   Widget build(BuildContext context) {
@@ -309,6 +320,7 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
               final isSelected = DateFormat('dd').format(date) ==
                   DateFormat('dd').format(_selectedDate);
 
+              // Sử dụng locale vi_VN để có tên ngày tiếng Việt
               String dayNameVietnamese =
                   DateFormat('EEE', 'vi_VN').format(date);
               if (dayNameVietnamese.contains('Th')) {
@@ -410,26 +422,5 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
           ),
       ],
     );
-  }
-
-  String _mapEnglishDayToVietnamese(String englishDay) {
-    switch (englishDay) {
-      case 'MONDAY':
-        return 'Thứ Hai';
-      case 'TUESDAY':
-        return 'Thứ Ba';
-      case 'WEDNESDAY':
-        return 'Thứ Tư';
-      case 'THURSDAY':
-        return 'Thứ Năm';
-      case 'FRIDAY':
-        return 'Thứ Sáu';
-      case 'SATURDAY':
-        return 'Thứ Bảy';
-      case 'SUNDAY':
-        return 'Chủ Nhật';
-      default:
-        return englishDay;
-    }
   }
 }

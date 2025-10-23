@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:hospital_booking_app/app/data/models/appointment_request_model.dart';
 import 'package:hospital_booking_app/app/data/models/payment_models.dart';
 import 'package:hospital_booking_app/app/data/models/appointment_response_model.dart';
+import 'package:hospital_booking_app/app/data/models/appointment_list_model.dart'; // <-- THÊM IMPORT
 
 abstract class AppointmentRepository {
   // 1. Tạo lịch hẹn (POST /api/appointments)
@@ -18,13 +19,16 @@ abstract class AppointmentRepository {
   Future<TransactionStatusResponseModel> checkTransactionStatus(
       int transactionId);
 
-  // 4. MÔ PHỎNG CALLBACK
+  // 4. LẤY DANH SÁCH LỊCH HẸN CỦA TÔI (MỚI)
+  Future<List<AppointmentListModel>> fetchMyAppointments();
+
+  // 5. MÔ PHỎNG CALLBACK
   Future<void> simulateSuccessfulPayment(int transactionId);
 
-  // 5. Lấy lịch làm việc có sẵn của bác sĩ (Mô phỏng/TBD: GET /api/doctors/available)
+  // 6. Lấy lịch làm việc có sẵn của bác sĩ (Mô phỏng/TBD: GET /api/doctors/available)
   Future<List<String>> fetchAvailableTimeSlots(int doctorId, String date);
 
-  // THÊM KHAI BÁO NÀY (Đã thiếu)
+  // 7. Hủy lịch hẹn
   Future<void> cancelAppointment(int appointmentId);
 }
 
@@ -46,6 +50,20 @@ class AppointmentRepositoryImpl implements AppointmentRepository {
     } on DioException catch (e) {
       String errorMessage =
           e.response?.data['message'] ?? 'Lỗi tạo lịch hẹn không xác định.';
+      throw Exception(errorMessage);
+    }
+  }
+
+  // API MỚI: Lấy danh sách lịch hẹn
+  @override
+  Future<List<AppointmentListModel>> fetchMyAppointments() async {
+    try {
+      final response = await dio.get('/api/appointments/me'); // <-- API BE
+      final List<dynamic> data = response.data;
+      return data.map((json) => AppointmentListModel.fromJson(json)).toList();
+    } on DioException catch (e) {
+      String errorMessage =
+          e.response?.data['message'] ?? 'Lỗi lấy danh sách lịch hẹn.';
       throw Exception(errorMessage);
     }
   }

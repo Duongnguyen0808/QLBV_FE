@@ -2,12 +2,87 @@
 
 import 'package:flutter/material.dart';
 import 'package:hospital_booking_app/app/core/constants/app_colors.dart';
+import 'package:hospital_booking_app/app/core/di/injection_container.dart';
 import 'package:hospital_booking_app/app/data/models/doctor_search_result_model.dart';
-import 'package:hospital_booking_app/app/presentation/features/booking/pages/appointment_detail_page.dart'; // THÊM IMPORT
+import 'package:hospital_booking_app/app/domain/repositories/data/data_repository.dart';
+import 'package:hospital_booking_app/app/presentation/features/booking/pages/appointment_detail_page.dart';
 
-class DoctorListPage extends StatelessWidget {
+// CHUYỂN TỪ StatelessWidget SANG StatefulWidget
+class DoctorListPage extends StatefulWidget {
   final List<DoctorSearchResultModel> doctors;
   const DoctorListPage({super.key, required this.doctors});
+
+  @override
+  State<DoctorListPage> createState() => _DoctorListPageState();
+}
+
+class _DoctorListPageState extends State<DoctorListPage> {
+  // DANH SÁCH HIỂN THỊ (thay đổi khi tìm kiếm)
+  List<DoctorSearchResultModel> _filteredDoctors = [];
+  final TextEditingController _searchController = TextEditingController();
+  final DataRepository _dataRepo = sl<DataRepository>();
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Khởi tạo danh sách hiển thị bằng danh sách ban đầu
+    _filteredDoctors = widget.doctors;
+    // Bắt đầu nghe sự kiện thay đổi của ô tìm kiếm để kích hoạt tìm kiếm
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  @override
+  void dispose() {
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  // LOGIC XỬ LÝ KHI Ô TÌM KIẾM THAY ĐỔI
+  void _onSearchChanged() {
+    final query = _searchController.text.trim();
+    if (query.isEmpty) {
+      // Nếu rỗng, hiển thị lại toàn bộ danh sách ban đầu
+      setState(() {
+        _filteredDoctors = widget.doctors;
+        _isLoading = false;
+      });
+    } else {
+      // Nếu có query, gọi API tìm kiếm
+      _performSearch(query);
+    }
+  }
+
+  Future<void> _performSearch(String query) async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // Gọi API tìm kiếm theo tên
+      final results = await _dataRepo.searchDoctors(name: query);
+
+      if (mounted) {
+        setState(() {
+          _filteredDoctors = results;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _filteredDoctors = [];
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text(
+                  'Lỗi tìm kiếm: ${e.toString().replaceFirst('Exception: ', '')}')),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -29,19 +104,21 @@ class DoctorListPage extends StatelessWidget {
           ),
         ),
       ),
-      body: doctors.isEmpty
-          ? const Center(child: Text('Không tìm thấy bác sĩ nào.'))
-          : ListView.builder(
-              padding: const EdgeInsets.all(16.0),
-              itemCount: doctors.length,
-              itemBuilder: (context, index) {
-                return _buildDoctorCard(context, doctors[index]);
-              },
-            ),
+      body: _isLoading
+          ? const Center(
+              child: CircularProgressIndicator(color: AppColors.primaryColor))
+          : _filteredDoctors.isEmpty
+              ? const Center(
+                  child: Text('Không tìm thấy bác sĩ nào trùng khớp.'))
+              : ListView.builder(
+                  padding: const EdgeInsets.all(16.0),
+                  itemCount: _filteredDoctors.length,
+                  itemBuilder: (context, index) {
+                    return _buildDoctorCard(context, _filteredDoctors[index]);
+                  },
+                ),
     );
   }
-
-  // ... (Giữ nguyên _buildSearchBar)
 
   Widget _buildSearchBar() {
     return Container(
@@ -57,6 +134,7 @@ class DoctorListPage extends StatelessWidget {
         ],
       ),
       child: TextField(
+        controller: _searchController, // <-- SỬ DỤNG CONTROLLER
         decoration: InputDecoration(
           hintText: 'Tìm kiếm Bác sĩ theo tên...',
           hintStyle: TextStyle(color: AppColors.hintColor),
@@ -67,9 +145,9 @@ class DoctorListPage extends StatelessWidget {
             borderSide: BorderSide.none,
           ),
         ),
-        onChanged: (query) {
-          // TODO: Implement search logic
-        },
+        // Đã loại bỏ onChanged và thay bằng listener trên controller
+        onSubmitted: (query) =>
+            _performSearch(query), // Tìm kiếm khi nhấn Enter
       ),
     );
   }
@@ -95,7 +173,7 @@ class DoctorListPage extends StatelessWidget {
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
             child: Image.asset(
-              doc.avatarUrl ?? 'assets/images/logo_app.png',
+              doc.avatarUrl ?? 'assets/images/doctor.png',
               height: 80,
               width: 80,
               fit: BoxFit.cover,

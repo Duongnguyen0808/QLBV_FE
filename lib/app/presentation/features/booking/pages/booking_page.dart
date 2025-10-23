@@ -336,7 +336,7 @@ class BookingPage extends StatelessWidget {
             ClipRRect(
               borderRadius: BorderRadius.circular(10),
               child: Image.asset(
-                doc.avatarUrl ?? 'assets/images/logo_app.png',
+                doc.avatarUrl ?? 'assets/images/doctor.png',
                 height: 80,
                 width: 80,
                 fit: BoxFit.cover,

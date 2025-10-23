@@ -1,12 +1,7 @@
-// lib/app/domain/repositories/auth/auth_repository.dart
-
-import 'dart:convert';
-
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:equatable/equatable.dart';
 
-// --- REQUEST MODELS (Lớp bị thiếu: SignInRequest, SignUpRequest) ---
 class SignInRequest extends Equatable {
   final String email;
   final String password;

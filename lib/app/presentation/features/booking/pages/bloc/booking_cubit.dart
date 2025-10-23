@@ -4,12 +4,10 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:hospital_booking_app/app/core/di/injection_container.dart';
 import 'package:hospital_booking_app/app/data/models/doctor_search_result_model.dart';
-// FIX: Import models từ DATA layer
 import 'package:hospital_booking_app/app/data/models/specialty_model.dart';
 import 'package:hospital_booking_app/app/data/models/user_model.dart';
 import 'package:hospital_booking_app/app/domain/repositories/data/data_repository.dart';
 
-// --- State --- (Định nghĩa các lớp State bị báo lỗi)
 abstract class BookingState extends Equatable {
   const BookingState();
   @override

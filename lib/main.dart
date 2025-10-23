@@ -7,17 +7,16 @@ import 'package:hospital_booking_app/app/core/di/injection_container.dart'
 import 'package:hospital_booking_app/app/core/di/injection_container.dart';
 import 'package:hospital_booking_app/app/domain/auth/auth_cubit.dart';
 import 'package:hospital_booking_app/app/domain/auth/auth_state.dart';
+import 'package:hospital_booking_app/app/presentation/features/appointment/bloc/appointment_cubit.dart';
 import 'package:hospital_booking_app/app/presentation/features/auth/pages/sign_in_page.dart';
+import 'package:hospital_booking_app/app/presentation/features/medical_record/bloc/medical_record_cubit.dart';
+import 'package:hospital_booking_app/app/presentation/features/profile/bloc/profile_cubit.dart';
 import 'package:hospital_booking_app/app/presentation/main_tab_controller.dart';
-// THÊM 2 DÒNG IMPORT INTL NÀY ĐỂ KHỞI TẠO LOCALE
 import 'package:intl/date_symbol_data_local.dart';
-import 'package:intl/intl.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // FIX LỖI: Gọi initializeDateFormatting() trước khi chạy ứng dụng
-  // Khởi tạo locale Tiếng Việt (vi) và Tiếng Anh (en)
   await initializeDateFormatting('vi', null);
   await initializeDateFormatting('en', null);
 
@@ -35,6 +34,15 @@ class MyApp extends StatelessWidget {
         BlocProvider<AuthCubit>(
           create: (context) => sl<AuthCubit>()..checkAuthStatus(),
         ),
+        BlocProvider<AppointmentCubit>(
+          create: (context) => sl<AppointmentCubit>(),
+        ),
+        BlocProvider<ProfileCubit>(
+          create: (context) => sl<ProfileCubit>(),
+        ),
+        BlocProvider<MedicalRecordCubit>(
+          create: (context) => sl<MedicalRecordCubit>(),
+        ),
       ],
       child: MaterialApp(
         title: 'Hospital Booking App',
@@ -43,6 +51,7 @@ class MyApp extends StatelessWidget {
           DefaultMaterialLocalizations.delegate,
           DefaultWidgetsLocalizations.delegate,
         ],
+        debugShowCheckedModeBanner: false,
         theme: ThemeData(
           primarySwatch: Colors.blue,
           visualDensity: VisualDensity.adaptivePlatformDensity,

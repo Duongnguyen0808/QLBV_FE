@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get_it/get_it.dart';
 import 'package:hospital_booking_app/app/presentation/features/appointment/bloc/appointment_cubit.dart';
+import 'package:hospital_booking_app/app/presentation/features/appointment/bloc/doctor_appointment_cubit.dart'; // THÊM
 // import 'package:hospital_booking_app/app/presentation/features/medical_record/bloc/medical_record_cubit.dart'; // Giữ nguyên, đã sửa ở file trên
 import 'package:hospital_booking_app/app/presentation/features/profile/bloc/profile_cubit.dart';
 import 'package:pretty_dio_logger/pretty_dio_logger.dart';
@@ -62,6 +63,7 @@ Future<void> init() async {
   sl.registerFactory(() => AuthCubit());
   sl.registerFactory(() => BookingCubit());
   sl.registerFactory(() => AppointmentCubit());
+  sl.registerFactory(() => DoctorAppointmentCubit()); // THÊM
   sl.registerFactory(() => ProfileCubit());
   sl.registerFactory(() => MedicalRecordCubit());
   sl.registerFactory(() => DoctorScheduleCubit()); // <--- ĐĂNG KÝ CUBIT MỚI

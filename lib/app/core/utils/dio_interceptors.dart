@@ -15,8 +15,20 @@ class AuthInterceptor extends Interceptor {
       RequestOptions options, RequestInterceptorHandler handler) async {
     final token = await storage.read(key: 'jwt_token');
 
+    // DEBUG: Log để kiểm tra token
+    print('🔍 DEBUG AuthInterceptor: Reading token from storage...');
+    print('🔍 DEBUG AuthInterceptor: Token exists = ${token != null}');
+    if (token != null && token.length > 20) {
+      print(
+          '🔍 DEBUG AuthInterceptor: Token preview = ${token.substring(0, 20)}...');
+    }
+
     if (token != null) {
       options.headers['Authorization'] = 'Bearer $token';
+      print('✅ DEBUG AuthInterceptor: Added Authorization header');
+    } else {
+      print(
+          '❌ DEBUG AuthInterceptor: No token found, skipping Authorization header');
     }
 
     if (options.path.contains('/api/auth/') ||

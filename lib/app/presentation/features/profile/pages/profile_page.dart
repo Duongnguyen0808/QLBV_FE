@@ -1,4 +1,6 @@
-// ignore_for_file: invalid_use_of_visible_for_testing_member, invalid_use_of_protected_member, prefer_const_constructors
+// lib/app/presentation/features/profile/pages/profile_page.dart
+
+// ignore_for_file: invalid_use_of_visible_for_testing_member, invalid_use_of_protected_member, prefer_const_constructors, unused_import, depend_on_referenced_packages
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -18,6 +20,9 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
+  // Số điện thoại CSKH cố định
+  static const String _cskhPhoneNumber = '0345745181';
+
   Future<void> _changePasswordApi(String current, String newPass) async {
     final dio = sl<Dio>();
     final requestData = {
@@ -83,12 +88,26 @@ class _ProfilePageState extends State<ProfilePage> {
                   const SizedBox(height: 20),
                   _buildInfoCard(state.user),
                   const SizedBox(height: 30),
+
+                  // MỤC ĐỔI MẬT KHẨU
                   _buildActionButton(
                     icon: Icons.lock_outline,
                     title: 'Đổi Mật Khẩu',
                     color: AppColors.secondaryColor,
                     onTap: () => _showChangePasswordDialog(context),
                   ),
+
+                  const SizedBox(height: 15),
+
+                  // THÊM MỤC CSKH MỚI
+                  _buildActionButton(
+                    icon: Icons.support_agent,
+                    title: 'Chăm sóc Khách hàng (CSKH)',
+                    subtitle: 'Hotline: $_cskhPhoneNumber',
+                    color: AppColors.primaryColor,
+                    onTap: () => _showCskhInfo(context),
+                  ),
+
                   const SizedBox(height: 15),
                   _buildLogoutButton(context),
                 ],
@@ -110,6 +129,32 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
         );
       },
+    );
+  }
+
+  // --- HÀM MỚI: HIỂN THỊ THÔNG BÁO CSKH ---
+  void _showCskhInfo(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Bộ phận CSKH'),
+        content: Text(
+            'Vui lòng gọi đến số hotline để được hỗ trợ:\n\nHotline: $_cskhPhoneNumber'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Đóng'),
+          ),
+          // Trong thực tế sẽ dùng url_launcher để gọi
+          // TextButton(
+          //   onPressed: () {
+          //     // Logic gọi điện thoại
+          //     Navigator.of(ctx).pop();
+          //   },
+          //   child: const Text('Gọi ngay'),
+          // ),
+        ],
+      ),
     );
   }
 
@@ -206,6 +251,7 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget _buildActionButton(
       {required IconData icon,
       required String title,
+      String? subtitle, // THÊM SUBTITLE
       required Color color,
       required VoidCallback onTap}) {
     return Card(
@@ -217,6 +263,11 @@ class _ProfilePageState extends State<ProfilePage> {
         leading: Icon(icon, color: color, size: 26),
         title: Text(title,
             style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+        subtitle: subtitle != null
+            ? Text(subtitle,
+                style:
+                    TextStyle(color: AppColors.hintColor)) // HIỂN THỊ SUBTITLE
+            : null,
         trailing: const Icon(Icons.arrow_forward_ios,
             size: 18, color: AppColors.hintColor),
         onTap: onTap,

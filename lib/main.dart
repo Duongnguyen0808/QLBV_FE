@@ -6,6 +6,7 @@ import 'package:hospital_booking_app/app/core/di/injection_container.dart'
     as di;
 import 'package:hospital_booking_app/app/core/di/injection_container.dart';
 import 'package:hospital_booking_app/app/presentation/features/appointment/bloc/appointment_cubit.dart';
+import 'package:hospital_booking_app/app/presentation/features/appointment/bloc/doctor_appointment_cubit.dart';
 import 'package:hospital_booking_app/app/presentation/features/auth/bloc/auth_cubit.dart';
 import 'package:hospital_booking_app/app/presentation/features/auth/bloc/auth_state.dart';
 import 'package:hospital_booking_app/app/presentation/features/auth/pages/sign_in_page.dart';
@@ -39,6 +40,9 @@ class MyApp extends StatelessWidget {
         // ĐĂNG KÝ TẤT CẢ CÁC CUBIT CẦN DÙNG CHO CẢ ỨNG DỤNG
         BlocProvider<AppointmentCubit>(
           create: (context) => sl<AppointmentCubit>(),
+        ),
+        BlocProvider<DoctorAppointmentCubit>(
+          create: (context) => sl<DoctorAppointmentCubit>(),
         ),
         BlocProvider<ProfileCubit>(
           create: (context) => sl<ProfileCubit>(),

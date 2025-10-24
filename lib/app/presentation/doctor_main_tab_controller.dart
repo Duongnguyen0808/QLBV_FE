@@ -1,12 +1,10 @@
-// lib/app/presentation/doctor_main_tab_controller.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hospital_booking_app/app/core/constants/app_colors.dart';
 import 'package:hospital_booking_app/app/data/models/working_schedule_model.dart';
-import 'package:hospital_booking_app/app/presentation/features/appointment/pages/appointment_list_page.dart';
-import 'package:hospital_booking_app/app/presentation/features/medical_record/bloc/medical_record_cubit.dart'; // CẦN CHO BLOC
+import 'package:hospital_booking_app/app/presentation/features/medical_record/bloc/medical_record_cubit.dart';
 import 'package:hospital_booking_app/app/presentation/features/profile/pages/profile_page.dart';
+import 'package:hospital_booking_app/app/presentation/features/appointment/pages/doctor_appointment_list_page.dart'; // SỬA IMPORT
 
 class DoctorMainTabController extends StatefulWidget {
   const DoctorMainTabController({super.key});
@@ -19,25 +17,21 @@ class DoctorMainTabController extends StatefulWidget {
 class _DoctorMainTabControllerState extends State<DoctorMainTabController> {
   int _currentIndex = 0;
 
-  // CHỈ 3 PAGE
   final List<Widget> _pages = [
-    AppointmentListPage(), // 0: Lịch Hẹn
-    const DoctorSchedulePage(), // 1: Lịch Làm Việc
-    const ProfilePage(), // 2: Hồ Sơ
+    const DoctorAppointmentListPage(), // SỬA TÊN TRANG
+    const DoctorSchedulePage(),
+    const ProfilePage(),
   ];
 
-  // CHỈ 3 ITEM
   final List<BottomNavigationBarItem> _navBarItems = const [
     BottomNavigationBarItem(
       icon: Icon(Icons.calendar_today),
       label: 'Lịch Hẹn',
     ),
-    // LỊCH LÀM VIỆC
     BottomNavigationBarItem(
       icon: Icon(Icons.schedule),
       label: 'Lịch Làm Việc',
     ),
-    // HỒ SƠ
     BottomNavigationBarItem(
       icon: Icon(Icons.person),
       label: 'Hồ Sơ',
@@ -58,7 +52,6 @@ class _DoctorMainTabControllerState extends State<DoctorMainTabController> {
         backgroundColor: AppColors.white,
         elevation: 0,
       ),
-      // SỬ DỤNG IndexedStack để chuyển đổi giữa 3 Page
       body: IndexedStack(
         index: _currentIndex,
         children: _pages,
@@ -79,7 +72,6 @@ class _DoctorMainTabControllerState extends State<DoctorMainTabController> {
   }
 }
 
-// BỔ SUNG PAGE LỊCH LÀM VIỆC THẬT (Sử dụng DoctorScheduleCubit)
 class DoctorSchedulePage extends StatelessWidget {
   const DoctorSchedulePage({super.key});
 
@@ -100,7 +92,7 @@ class DoctorSchedulePage extends StatelessWidget {
                 const Text('Lỗi tải lịch làm việc.',
                     style: TextStyle(color: AppColors.red)),
                 Text(state.message,
-                    style: TextStyle(color: AppColors.hintColor)),
+                    style: const TextStyle(color: AppColors.hintColor)),
                 ElevatedButton(
                     onPressed: () =>
                         context.read<DoctorScheduleCubit>().fetchSchedules(),
@@ -133,7 +125,6 @@ class DoctorSchedulePage extends StatelessWidget {
           );
         }
 
-        // HIỂN THỊ DANH SÁCH LỊCH LÀM VIỆC
         return ListView(
           padding: const EdgeInsets.all(16.0),
           children: [
@@ -145,7 +136,6 @@ class DoctorSchedulePage extends StatelessWidget {
                   color: AppColors.primaryColor),
             ),
             const Divider(height: 20),
-            // HEADER CỘT
             Container(
               padding: const EdgeInsets.symmetric(vertical: 10),
               decoration: const BoxDecoration(
@@ -172,8 +162,6 @@ class DoctorSchedulePage extends StatelessWidget {
                 ],
               ),
             ),
-
-            // DANH SÁCH SCHEDULE
             ...schedules
                 .map((schedule) => Container(
                       padding: const EdgeInsets.symmetric(vertical: 12),
@@ -189,7 +177,7 @@ class DoctorSchedulePage extends StatelessWidget {
                               flex: 2,
                               child: Center(
                                   child: Text(schedule.dayOfWeek,
-                                      style: TextStyle(
+                                      style: const TextStyle(
                                           fontWeight: FontWeight.w600)))),
                           Expanded(
                               flex: 3,
@@ -198,7 +186,6 @@ class DoctorSchedulePage extends StatelessWidget {
                       ),
                     ))
                 .toList(),
-
             const SizedBox(height: 20),
             const Text(
               'Ghi chú: Lịch được quản lý chi tiết qua Web Admin.',

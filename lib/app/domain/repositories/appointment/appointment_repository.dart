@@ -27,6 +27,12 @@ abstract class AppointmentRepository {
   // 4. LẤY DANH SÁCH LỊCH HẸN CỦA TÔI (Cho cả Bệnh nhân và Bác sĩ)
   Future<List<AppointmentListModel>> fetchMyAppointments();
 
+  // 4B. LẤY DANH SÁCH LỊCH HẸN CHO BÁC SĨ (Gọi trực tiếp API bác sĩ)
+  Future<List<AppointmentListModel>> fetchDoctorAppointments();
+
+  // 4C. LẤY DANH SÁCH LỊCH HẸN CHO BỆNH NHÂN (Gọi trực tiếp API bệnh nhân)
+  Future<List<AppointmentListModel>> fetchPatientAppointments();
+
   // 5. ĐỔI LỊCH (RESCHEDULE)
   Future<AppointmentResponseModel> rescheduleAppointment(
       int appointmentId, String newDateTime);
@@ -93,27 +99,112 @@ class AppointmentRepositoryImpl implements AppointmentRepository {
     }
   }
 
-  // API 4: Lấy danh sách lịch hẹn (QUAN TRỌNG)
+  // API 4: Lấy danh sách lịch hẹn (QUAN TRỌNG: Đã sửa logic phân biệt vai trò)
   @override
   Future<List<AppointmentListModel>> fetchMyAppointments() async {
-    final authState = sl<AuthCubit>().state;
+    // Sửa lỗi: Lấy vai trò ngay lập tức từ AuthCubit (Giả định nó luôn có dữ liệu sau đăng nhập)
+    final authCubit = sl<AuthCubit>();
     String endpoint;
 
+    // Phải kiểm tra trạng thái đã xác thực và lấy vai trò
+    final authState = authCubit.state;
+    bool isDoctor = false;
+    if (authState is AuthAuthenticated) {
+      // SỬA: Hỗ trợ cả DOCTOR và ROLE_DOCTOR
+      final role = authState.role.toUpperCase();
+      isDoctor = role == 'DOCTOR' ||
+          role == 'ROLE_DOCTOR' ||
+          role == 'ADMIN' ||
+          role == 'ROLE_ADMIN';
+      print('🔍 DEBUG: User role = ${authState.role}, isDoctor = $isDoctor');
+    } else {
+      print('❌ DEBUG: User is NOT authenticated! State = $authState');
+    }
+
     // PHÂN BIỆT API DỰA TRÊN VAI TRÒ
-    if (authState is AuthAuthenticated &&
-        (authState.role == 'DOCTOR' || authState.role == 'ADMIN')) {
+    if (isDoctor) {
       endpoint = '/api/doctors/me/appointments'; // API Bác sĩ
     } else {
       endpoint = '/api/appointments/me'; // API Bệnh nhân
     }
 
+    print('📡 DEBUG: Calling API endpoint: $endpoint');
+
     try {
       final response = await dio.get(endpoint);
+      print('✅ DEBUG: API Response status = ${response.statusCode}');
+      print('📦 DEBUG: API Response data type = ${response.data.runtimeType}');
+      print('📦 DEBUG: API Response data = ${response.data}');
+
       final List<dynamic> data = response.data;
-      return data.map((json) => AppointmentListModel.fromJson(json)).toList();
+      print('📊 DEBUG: Total appointments received = ${data.length}');
+
+      final appointments =
+          data.map((json) => AppointmentListModel.fromJson(json)).toList();
+      print('✅ DEBUG: Successfully parsed ${appointments.length} appointments');
+
+      return appointments;
     } on DioException catch (e) {
+      print('❌ DEBUG: DioException occurred!');
+      print('❌ DEBUG: Status code = ${e.response?.statusCode}');
+      print('❌ DEBUG: Error message = ${e.response?.data}');
+
       String errorMessage =
           e.response?.data['message'] ?? 'Lỗi lấy danh sách lịch hẹn.';
+      throw Exception(errorMessage);
+    } catch (e) {
+      print('❌ DEBUG: Unexpected error = $e');
+      throw Exception('Lỗi không xác định: $e');
+    }
+  }
+
+  // API 4B: Lấy danh sách lịch hẹn cho BÁC SĨ (Gọi trực tiếp /api/doctors/me/appointments)
+  @override
+  Future<List<AppointmentListModel>> fetchDoctorAppointments() async {
+    const endpoint = '/api/doctors/me/appointments';
+    print('🔵 DEBUG fetchDoctorAppointments: Calling $endpoint');
+
+    try {
+      final response = await dio.get(endpoint);
+      print('✅ DEBUG fetchDoctorAppointments: Status = ${response.statusCode}');
+      print(
+          '📦 DEBUG fetchDoctorAppointments: Data length = ${(response.data as List).length}');
+
+      final List<dynamic> data = response.data;
+      final appointments =
+          data.map((json) => AppointmentListModel.fromJson(json)).toList();
+
+      return appointments;
+    } on DioException catch (e) {
+      print('❌ DEBUG fetchDoctorAppointments: Error = ${e.response?.data}');
+      String errorMessage =
+          e.response?.data['message'] ?? 'Lỗi lấy danh sách lịch hẹn bác sĩ.';
+      throw Exception(errorMessage);
+    }
+  }
+
+  // API 4C: Lấy danh sách lịch hẹn cho BỆNH NHÂN (Gọi trực tiếp /api/appointments/me)
+  @override
+  Future<List<AppointmentListModel>> fetchPatientAppointments() async {
+    const endpoint = '/api/appointments/me';
+    print('🟢 DEBUG fetchPatientAppointments: Calling $endpoint');
+
+    try {
+      final response = await dio.get(endpoint);
+      print(
+          '✅ DEBUG fetchPatientAppointments: Status = ${response.statusCode}');
+      print(
+          '📦 DEBUG fetchPatientAppointments: Data length = ${(response.data as List).length}');
+
+      final List<dynamic> data = response.data;
+      final appointments =
+          data.map((json) => AppointmentListModel.fromJson(json)).toList();
+
+      return appointments;
+    } on DioException catch (e) {
+      print('❌ DEBUG fetchPatientAppointments: Error = ${e.response?.data}');
+      String errorMessage = e.response?.data['message'] ??
+          'Lỗi lấy danh sách lịch hẹn bệnh nhân.';
       throw Exception(errorMessage);
     }
   }

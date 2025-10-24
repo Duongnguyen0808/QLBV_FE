@@ -11,8 +11,9 @@ import 'package:hospital_booking_app/app/data/models/working_schedule_model.dart
 abstract class DataRepository {
   Future<UserModel> fetchMyProfile();
   Future<List<SpecialtyModel>> fetchAllSpecialties();
+  // SỬA: Thêm email vào searchDoctors để tăng tính duy nhất khi tìm kiếm
   Future<List<DoctorSearchResultModel>> searchDoctors(
-      {String? name, int? specialtyId});
+      {String? name, int? specialtyId, String? email});
   Future<List<MedicalRecordModel>> fetchMyMedicalRecords();
   Future<List<MedicalRecordModel>> searchMedicalRecords({String? query});
 
@@ -26,7 +27,7 @@ class DataRepositoryImpl implements DataRepository {
 
   DataRepositoryImpl({required this.dio});
 
-  // ... (Các hàm fetchMyProfile, fetchAllSpecialties, searchDoctors, fetchMyMedicalRecords giữ nguyên)
+  // ... (Các hàm fetchMyProfile, fetchAllSpecialties giữ nguyên)
 
   @override
   Future<UserModel> fetchMyProfile() async {
@@ -50,14 +51,17 @@ class DataRepositoryImpl implements DataRepository {
   }
 
   @override
+  // SỬA: Thêm email vào queryParameters
   Future<List<DoctorSearchResultModel>> searchDoctors(
-      {String? name, int? specialtyId}) async {
+      {String? name, int? specialtyId, String? email}) async {
     try {
       final response = await dio.get(
         '/api/public/doctors/search',
         queryParameters: {
           'name': name,
           'specialtyId': specialtyId,
+          // SỬA: Thêm email vào Query Parameter
+          'email': email,
         },
       );
       final List<dynamic> data = response.data;
@@ -98,31 +102,21 @@ class DataRepositoryImpl implements DataRepository {
     }).toList();
   }
 
-  // THÊM: API lấy lịch làm việc (SỬ DỤNG LẠI API TÌM KIẾM THEO BÁC SĨ VÀ NGÀY)
-  // LƯU Ý: Backend không có API riêng cho Doctor lấy Working Schedule của chính mình
-  // -> Ta sẽ dùng API Search Doctors /api/public/doctors/search và tự lọc ra lịch làm việc của mình
+  // THÊM: API lấy lịch làm việc (SỬ DỤNG EMAIL DUY NHẤT)
   @override
   Future<List<WorkingScheduleModel>> fetchMyWorkingSchedules() async {
     try {
-      // BƯỚC 1: Lấy Profile để có Doctor ID
+      // BƯỚC 1: Lấy Profile để có Email (unique identifier)
       final userProfile = await fetchMyProfile();
 
-      // BƯỚC 2: Gọi API Public Search Doctors (Endpoint này trả về schedule trong DoctorSearchResultDTO)
-      final response =
-          await dio.get('/api/public/doctors/search', queryParameters: {
-        // Chỉ tìm kiếm theo tên/email của chính mình để tránh lỗi
-        'name': userProfile.fullName,
-      });
+      // BƯỚC 2: Gọi API Public Search Doctors với email (ổn định hơn tên)
+      final List<DoctorSearchResultModel> doctorResults = await searchDoctors(
+        email: userProfile.email,
+        name: userProfile
+            .fullName, // Giữ lại name để backend tìm kiếm thêm nếu cần
+      );
 
-      final List<dynamic> data = response.data;
-
-      // BƯỚC 3: Tìm DoctorSearchResultModel có ID trùng với Profile hiện tại
-      final List<DoctorSearchResultModel> doctorResults = data
-          .map((json) => DoctorSearchResultModel.fromJson(json))
-          .where((doc) =>
-              doc.fullName == userProfile.fullName) // Giả định tên duy nhất
-          .toList();
-
+      // BƯỚC 3: Trả về schedules
       if (doctorResults.isNotEmpty) {
         return doctorResults.first.schedules;
       }

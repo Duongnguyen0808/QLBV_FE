@@ -37,8 +37,9 @@ class AppointmentCubit extends Cubit<AppointmentState> {
   final AppointmentRepository _appointmentRepo = sl<AppointmentRepository>();
 
   AppointmentCubit() : super(AppointmentInitial()) {
-    // KHÔNG TỰ ĐỘNG GỌI FETCH KHI KHỞI TẠO NỮA
-    // Thay vào đó, nó được gọi thủ công từ `main.dart` sau khi đăng nhập thành công.
+    // SỬA Ở ĐÂY: Gọi fetchAppointments() ngay khi Cubit được tạo.
+    // Repository sẽ tự động gọi đúng API dựa trên vai trò (Patient/Doctor).
+    fetchAppointments();
   }
 
   // HÀM SẮP XẾP LỊCH HẸN THEO THỨ TỰ ƯU TIÊN (Giữ nguyên)
@@ -67,7 +68,6 @@ class AppointmentCubit extends Cubit<AppointmentState> {
     return list;
   }
 
-  // SỬA: BỎ LOGIC BẮT ĐẦU CUBIT ĐI VÀ LÀM NÓ THUẦN HƠN
   Future<void> fetchAppointments() async {
     // Chỉ emit Loading nếu trạng thái hiện tại không phải Loading
     if (state is! AppointmentLoading) {
@@ -75,9 +75,14 @@ class AppointmentCubit extends Cubit<AppointmentState> {
     }
 
     try {
-      final appointments = await _appointmentRepo.fetchMyAppointments();
+      // GỌI API BỆNH NHÂN (không cần kiểm tra role nữa)
+      print('🟢 DEBUG AppointmentCubit: Calling fetchPatientAppointments()');
+      final appointments = await _appointmentRepo.fetchPatientAppointments();
+
       // ÁP DỤNG SẮP XẾP MỚI
       final sortedAppointments = _sortAppointments(appointments);
+      print(
+          '✅ DEBUG AppointmentCubit: Loaded ${sortedAppointments.length} appointments');
 
       emit(AppointmentLoadSuccess(sortedAppointments));
     } catch (e) {
@@ -92,24 +97,32 @@ class AppointmentCubit extends Cubit<AppointmentState> {
     try {
       final response = await _appointmentRepo.rescheduleAppointment(
           appointmentId, newDateTime);
-      await fetchAppointments();
+      await fetchAppointments(); // Tải lại danh sách sau khi đổi lịch
       return response;
     } catch (e) {
+      // Ném lại lỗi để UI có thể xử lý
       throw Exception(e.toString().replaceFirst('Exception: ', ''));
     }
   }
 
   Future<void> cancelAppointment(int appointmentId) async {
-    final currentState = state;
+    final currentState = state; // Lưu trạng thái hiện tại phòng trường hợp lỗi
     try {
-      emit(AppointmentLoading());
+      // Không cần emit loading ở đây nếu bạn muốn UI phản hồi nhanh hơn
+      // hoặc bạn có thể emit loading nếu muốn hiển thị chỉ báo
+      // emit(AppointmentLoading());
       await _appointmentRepo.cancelAppointment(appointmentId);
-      await fetchAppointments();
+      await fetchAppointments(); // Tải lại danh sách sau khi hủy
     } catch (e) {
       String errorMessage = e.toString().replaceFirst('Exception: ', '');
+      // Nếu có lỗi, quay lại trạng thái trước đó (nếu là Success)
       if (currentState is AppointmentLoadSuccess) {
         emit(AppointmentLoadSuccess(currentState.appointments));
+      } else {
+        // Nếu trạng thái trước đó không phải Success, emit lỗi
+        emit(AppointmentLoadFailure(errorMessage));
       }
+      // Ném lại lỗi để UI có thể hiển thị thông báo
       throw Exception(errorMessage);
     }
   }

@@ -7,6 +7,9 @@ import 'package:hospital_booking_app/app/core/constants/app_colors.dart';
 import 'package:hospital_booking_app/app/data/models/appointment_list_model.dart';
 import 'package:hospital_booking_app/app/presentation/features/appointment/bloc/doctor_appointment_cubit.dart';
 import 'package:intl/intl.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'dart:io' show Platform;
 
 // KHÔNG cần các import logic cho Patient (Reschedule, Cancel)
 
@@ -60,7 +63,7 @@ class _DoctorAppointmentListPageState extends State<DoctorAppointmentListPage> {
         print(
             '🎧 DEBUG: BlocConsumer listener triggered, state = ${state.runtimeType}');
         if (state is DoctorAppointmentLoadFailure) {
-          print('❌ DEBUG: DoctorAppointmentLoadFailure - ${state.message}');
+          print(' DEBUG: DoctorAppointmentLoadFailure - ${state.message}');
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Lỗi: ${state.message}'),
@@ -70,11 +73,11 @@ class _DoctorAppointmentListPageState extends State<DoctorAppointmentListPage> {
         }
       },
       builder: (context, state) {
-        print('🏗️ DEBUG: BlocConsumer builder, state = ${state.runtimeType}');
+        print(' DEBUG: BlocConsumer builder, state = ${state.runtimeType}');
 
         if (state is DoctorAppointmentLoading ||
             state is DoctorAppointmentInitial) {
-          print('⏳ DEBUG: Showing loading indicator');
+          print(' DEBUG: Showing loading indicator');
           return const Center(
               child: CircularProgressIndicator(color: AppColors.primaryColor));
         }
@@ -83,10 +86,10 @@ class _DoctorAppointmentListPageState extends State<DoctorAppointmentListPage> {
             ? state.appointments
             : <AppointmentListModel>[];
 
-        print('📊 DEBUG: Appointments count = ${appointments.length}');
+        print(' DEBUG: Appointments count = ${appointments.length}');
 
         if (appointments.isEmpty) {
-          print('📭 DEBUG: No appointments, showing empty state');
+          print(' DEBUG: No appointments, showing empty state');
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -177,7 +180,6 @@ class _DoctorAppointmentListPageState extends State<DoctorAppointmentListPage> {
             style: TextStyle(fontSize: 14, color: AppColors.hintColor),
           ),
 
-          // DÒNG 4: NÚT HÀNH ĐỘNG (Gửi Nhắc nhở)
           if (isActiveForDoctor)
             Padding(
               padding: const EdgeInsets.only(top: 10.0),
@@ -197,17 +199,62 @@ class _DoctorAppointmentListPageState extends State<DoctorAppointmentListPage> {
     );
   }
 
-  void _sendReminder(BuildContext context, AppointmentListModel appt) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(
-            'Đang gửi nhắc nhở lịch hẹn về Gmail cho bệnh nhân ${appt.patientFullName}...')));
-    Future.delayed(const Duration(seconds: 1), () {
+  Future<void> _sendReminder(
+      BuildContext context, AppointmentListModel appt) async {
+    const storage = FlutterSecureStorage();
+    final token = await storage.read(key: 'jwt_token');
+
+    if (token == null || token.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Bạn chưa đăng nhập hoặc thiếu token'),
+            backgroundColor: AppColors.red),
+      );
+      return;
+    }
+
+    final baseUrl =
+        Platform.isAndroid ? 'http://10.0.2.2:8080' : 'http://localhost:8080';
+    final uri =
+        Uri.parse('$baseUrl/api/doctors/appointments/${appt.id}/remind');
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+          content: Text('Đang gửi nhắc nhở cho ${appt.patientFullName}...')),
+    );
+
+    try {
+      final res = await http.post(
+        uri,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      );
+
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Đã gửi thông báo nhắc nhở thành công!'),
-        backgroundColor: AppColors.green,
-      ));
-    });
+
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        final msg = data['message'] ?? 'Đã gửi nhắc nhở thành công!';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(msg), backgroundColor: AppColors.green),
+        );
+      } else {
+        final err = res.body.isNotEmpty
+            ? res.body
+            : 'Không gửi được nhắc nhở (HTTP ${res.statusCode})';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi: $err'), backgroundColor: AppColors.red),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Lỗi mạng: $e'), backgroundColor: AppColors.red),
+      );
+    }
   }
 
   String _formatDateTime(String dateTimeString) {

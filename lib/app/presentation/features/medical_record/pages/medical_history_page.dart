@@ -9,6 +9,9 @@ import 'package:intl/intl.dart';
 import 'package:hospital_booking_app/app/core/di/injection_container.dart';
 import 'package:hospital_booking_app/app/presentation/features/auth/bloc/auth_cubit.dart';
 import 'package:hospital_booking_app/app/presentation/features/auth/bloc/auth_state.dart';
+import 'package:hospital_booking_app/app/data/models/doctor_review_model.dart';
+import 'package:hospital_booking_app/app/domain/repositories/data/data_repository.dart';
+import 'package:hospital_booking_app/app/data/models/user_review_store.dart';
 
 class MedicalHistoryPage extends StatefulWidget {
   const MedicalHistoryPage({super.key});
@@ -20,6 +23,120 @@ class MedicalHistoryPage extends StatefulWidget {
 class _MedicalHistoryPageState extends State<MedicalHistoryPage> {
   final TextEditingController _searchController = TextEditingController();
   String _currentRole = 'PATIENT'; // Khởi tạo vai trò
+  // THÊM: Repo và cache review
+  final DataRepository _dataRepo = sl<DataRepository>();
+  final Map<int, DoctorReviewModel?> _reviewCache = {};
+  final Set<int> _loadingReviewIds = {};
+
+  Future<void> _ensureReviewLoaded(int recordId) async {
+    if (_reviewCache.containsKey(recordId) ||
+        _loadingReviewIds.contains(recordId)) {
+      return;
+    }
+    setState(() => _loadingReviewIds.add(recordId));
+    try {
+      final review = await _dataRepo.fetchReviewForRecord(recordId);
+      setState(() => _reviewCache[recordId] = review);
+    } catch (_) {
+      // Bỏ qua lỗi, vẫn cho phép người dùng đánh giá
+    } finally {
+      setState(() => _loadingReviewIds.remove(recordId));
+    }
+  }
+
+  void _openReviewSheet(MedicalRecordModel record) {
+    int selectedRating = 5;
+    final TextEditingController commentCtrl = TextEditingController();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 16,
+                bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Đánh giá bác sĩ',
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: List.generate(5, (i) {
+                      final idx = i + 1;
+                      final isActive = idx <= selectedRating;
+                      return IconButton(
+                        onPressed: () {
+                          selectedRating = idx;
+                          setModalState(() {});
+                        },
+                        icon: Icon(
+                          isActive ? Icons.star : Icons.star_border,
+                          color: isActive
+                              ? AppColors.primaryColor
+                              : AppColors.hintColor,
+                          size: 28,
+                        ),
+                      );
+                    }),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: commentCtrl,
+                    maxLines: 3,
+                    decoration: const InputDecoration(
+                      hintText: 'Viết nhận xét của bạn...',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        try {
+                          final result = await _dataRepo.submitReviewForRecord(
+                            record.id,
+                            selectedRating,
+                            commentCtrl.text.trim(),
+                          );
+                          setState(() => _reviewCache[record.id] = result);
+                          // CẬP NHẬT STORE ĐỂ HIỂN THỊ SAO DƯỚI THẺ BÁC SĨ
+                          UserReviewStore.instance
+                              .update(record.doctorName, selectedRating);
+                          if (mounted) Navigator.of(ctx).pop();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                                content: Text('Gửi đánh giá thành công')),
+                          );
+                        } catch (e) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Lỗi gửi đánh giá: $e')),
+                          );
+                        }
+                      },
+                      child: const Text('Gửi đánh giá'),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
 
   @override
   void initState() {
@@ -197,6 +314,10 @@ class _MedicalHistoryPageState extends State<MedicalHistoryPage> {
     final dateTime = DateTime.parse(record.appointmentDate).toLocal();
     final formattedDate = DateFormat('HH:mm - dd/MM/yyyy').format(dateTime);
 
+    // THÊM: tải review nếu chưa có (sau frame để tránh setState trong build)
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => _ensureReviewLoaded(record.id));
+
     return Card(
       margin: const EdgeInsets.only(bottom: 15),
       elevation: 2,
@@ -205,7 +326,7 @@ class _MedicalHistoryPageState extends State<MedicalHistoryPage> {
         // Dùng ExpansionTile để mở ra xem chi tiết
         tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         title: Text(
-          'Bệnh án #${record.id}',
+          'Bệnh án ',
           style: const TextStyle(
               fontWeight: FontWeight.bold,
               color: AppColors.primaryColor,
@@ -254,9 +375,57 @@ class _MedicalHistoryPageState extends State<MedicalHistoryPage> {
                     isMultiLine: true, isHighlight: true),
                 // GHI CHÚ: Nổi bật
                 _buildDetailRow('Ghi chú', record.notes, isHighlight: true),
-                if (record.reexaminationDate != null &&
-                    record.reexaminationDate!.isNotEmpty)
-                  _buildDetailRow('Tái khám', record.reexaminationDate!),
+                // THÊM: Khu vực đánh giá
+                const SizedBox(height: 8),
+                Builder(builder: (ctx) {
+                  final isLoading = _loadingReviewIds.contains(record.id);
+                  final review = _reviewCache[record.id];
+                  if (isLoading) {
+                    return const Center(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(vertical: 8.0),
+                        child: CircularProgressIndicator(
+                            color: AppColors.primaryColor),
+                      ),
+                    );
+                  }
+                  if (review != null) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Đánh giá:',
+                            style: TextStyle(fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 6),
+                        Row(
+                          children: List.generate(5, (i) {
+                            final idx = i + 1;
+                            final filled = idx <= review.rating;
+                            return Icon(
+                              filled ? Icons.star : Icons.star_border,
+                              color: filled
+                                  ? AppColors.primaryColor
+                                  : AppColors.hintColor,
+                              size: 22,
+                            );
+                          }),
+                        ),
+                        if (review.comment.isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          Text('Nhận xét: ${review.comment}'),
+                        ],
+                      ],
+                    );
+                  }
+                  return SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () => _openReviewSheet(record),
+                      icon:
+                          const Icon(Icons.star, color: AppColors.primaryColor),
+                      label: const Text('Đánh giá bác sĩ'),
+                    ),
+                  );
+                }),
               ],
             ),
           ),

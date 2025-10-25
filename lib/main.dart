@@ -57,7 +57,6 @@ class MyApp extends StatelessWidget {
           create: (context) => sl<DoctorScheduleCubit>(),
         ),
       ],
-      // THAY MaterialApp TRỰC TIẾP BẰNG BlocListener ĐỂ ĐIỀU HƯỚNG THEO AUTH STATE
       child: BlocListener<AuthCubit, AuthState>(
         listener: (context, state) {
           final nav = rootNavigatorKey.currentState;
@@ -96,6 +95,7 @@ class MyApp extends StatelessWidget {
             DefaultMaterialLocalizations.delegate,
             DefaultWidgetsLocalizations.delegate,
           ],
+          debugShowCheckedModeBanner: false,
           theme: ThemeData(
             primarySwatch: Colors.blue,
             visualDensity: VisualDensity.adaptivePlatformDensity,

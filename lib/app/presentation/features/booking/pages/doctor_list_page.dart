@@ -6,6 +6,7 @@ import 'package:hospital_booking_app/app/core/di/injection_container.dart';
 import 'package:hospital_booking_app/app/data/models/doctor_search_result_model.dart';
 import 'package:hospital_booking_app/app/domain/repositories/data/data_repository.dart';
 import 'package:hospital_booking_app/app/presentation/features/appointment/pages/appointment_detail_page.dart';
+import 'package:hospital_booking_app/app/data/models/user_review_store.dart';
 
 // CHUYỂN TỪ StatelessWidget SANG StatefulWidget
 class DoctorListPage extends StatefulWidget {
@@ -201,15 +202,45 @@ class _DoctorListPageState extends State<DoctorListPage> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                Row(
-                  children: [
-                    const Icon(Icons.star, color: AppColors.orange, size: 18),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${doc.rating}',
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                  ],
+                // HIỂN THỊ ĐÁNH GIÁ CỦA BẠN (nếu có), nếu không thì thông báo
+                ValueListenableBuilder<Map<String, int>>(
+                  valueListenable: UserReviewStore.instance.lastRatingsByDoctorName,
+                  builder: (context, ratings, _) {
+                    final key = UserReviewStore.normalizeName(doc.fullName);
+                    final r = ratings[key];
+                    if (r != null) {
+                      return Row(
+                        children: [
+                          ...List.generate(5, (i) => Icon(
+                                i < r ? Icons.star : Icons.star_border,
+                                color: AppColors.orange,
+                                size: 18,
+                              )),
+                        ],
+                      );
+                    }
+                    return Row(
+                      children: const [
+                        Icon(Icons.star, color: AppColors.orange, size: 18),
+                        SizedBox(width: 4),
+                        Text(
+                          'Chưa có đánh giá',
+                          style: TextStyle(
+                            color: AppColors.hintColor,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+                // ẨN HÀNG "Bạn đánh giá" vì đã thay thế ở dòng trên
+                ValueListenableBuilder<Map<String, int>>(
+                  valueListenable:
+                      UserReviewStore.instance.lastRatingsByDoctorName,
+                  builder: (context, ratings, _) {
+                    return const SizedBox.shrink();
+                  },
                 ),
                 const SizedBox(height: 10),
                 SizedBox(

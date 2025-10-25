@@ -266,12 +266,12 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Phí khám (ước tính):',
+                      'Phí khám',
                       style: TextStyle(color: AppColors.hintColor),
                     ),
                     Flexible(
                       child: Text(
-                        '10.000 VND',
+                        '5.000 VND',
                         style: TextStyle(
                             color: AppColors.red, fontWeight: FontWeight.bold),
                       ),

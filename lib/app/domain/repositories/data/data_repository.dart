@@ -6,6 +6,7 @@ import 'package:hospital_booking_app/app/data/models/user_model.dart';
 import 'package:hospital_booking_app/app/data/models/doctor_search_result_model.dart';
 import 'package:hospital_booking_app/app/data/models/medical_record_model.dart';
 import 'package:hospital_booking_app/app/data/models/working_schedule_model.dart'; // THÊM IMPORT
+import 'package:hospital_booking_app/app/data/models/doctor_review_model.dart';
 
 // --- Data Repository Interface ---
 abstract class DataRepository {
@@ -19,6 +20,11 @@ abstract class DataRepository {
 
   // THÊM: Lấy lịch làm việc của Bác sĩ (API cần quyền Doctor)
   Future<List<WorkingScheduleModel>> fetchMyWorkingSchedules();
+
+  // THÊM: API Review cho bệnh án
+  Future<DoctorReviewModel?> fetchReviewForRecord(int recordId);
+  Future<DoctorReviewModel> submitReviewForRecord(
+      int recordId, int rating, String comment);
 }
 
 // --- Data Repository Implementation ---
@@ -125,6 +131,42 @@ class DataRepositoryImpl implements DataRepository {
       String errorMessage =
           e.response?.data['message'] ?? 'Lỗi tải lịch làm việc.';
       throw Exception(errorMessage);
+    }
+  }
+
+  // THÊM: API lấy review theo medical_record_id
+  @override
+  Future<DoctorReviewModel?> fetchReviewForRecord(int recordId) async {
+    try {
+      final response = await dio.get('/api/reviews/medical-records/$recordId');
+      if (response.statusCode == 204 || response.data == null) {
+        return null; // Không có review
+      }
+      return DoctorReviewModel.fromJson(response.data);
+    } on DioException catch (e) {
+      // Nếu 404 hoặc 204 => coi như chưa có review
+      if (e.response?.statusCode == 404 || e.response?.statusCode == 204) {
+        return null;
+      }
+      throw Exception(e.response?.data['message'] ?? 'Lỗi tải đánh giá.');
+    }
+  }
+
+  // THÊM: API gửi/ cập nhật review theo medical_record_id
+  @override
+  Future<DoctorReviewModel> submitReviewForRecord(
+      int recordId, int rating, String comment) async {
+    try {
+      final response = await dio.post(
+        '/api/reviews/medical-records/$recordId',
+        data: {
+          'rating': rating,
+          'comment': comment,
+        },
+      );
+      return DoctorReviewModel.fromJson(response.data);
+    } on DioException catch (e) {
+      throw Exception(e.response?.data['message'] ?? 'Lỗi gửi đánh giá.');
     }
   }
 }

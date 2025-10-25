@@ -12,6 +12,7 @@ import 'package:hospital_booking_app/app/presentation/features/booking/pages/doc
 import 'package:hospital_booking_app/app/presentation/features/booking/pages/specialty_list_page.dart';
 import 'package:hospital_booking_app/app/domain/repositories/data/data_repository.dart';
 import 'package:hospital_booking_app/app/presentation/features/appointment/pages/appointment_detail_page.dart'; // THÊM IMPORT NÀY
+import 'package:hospital_booking_app/app/data/models/user_review_store.dart';
 
 class BookingPage extends StatelessWidget {
   const BookingPage({super.key});
@@ -364,15 +365,39 @@ class BookingPage extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      const Icon(Icons.star, color: AppColors.orange, size: 18),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${doc.rating}',
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                    ],
+                  ValueListenableBuilder<Map<String, int>>(
+                    valueListenable:
+                        UserReviewStore.instance.lastRatingsByDoctorName,
+                    builder: (context, ratings, _) {
+                      final key = UserReviewStore.normalizeName(doc.fullName);
+                      final r = ratings[key];
+                      if (r != null) {
+                        return Row(
+                          children: [
+                            ...List.generate(
+                              5,
+                              (i) => Icon(
+                                i < r ? Icons.star : Icons.star_border,
+                                color: AppColors.orange,
+                                size: 18,
+                              ),
+                            ),
+                          ],
+                        );
+                      }
+                      return Row(
+                        children: const [
+                          Icon(Icons.star, color: AppColors.orange, size: 18),
+                          SizedBox(width: 4),
+                          Text(
+                            'Chưa có đánh giá',
+                            style: TextStyle(
+                                color: AppColors.hintColor,
+                                fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                      );
+                    },
                   ),
                 ],
               ),
